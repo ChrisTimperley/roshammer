@@ -122,19 +122,28 @@ class ROSHammerUI:
         width_right = width_left
 
         # draw left panes
-        panes_left: List[Pane] = [self.__pane_nodes, self.__pane_services]
+        panes_left: List[Pane] = [
+            self.__pane_nodes,
+            self.__pane_services]
         lines_left: List[str] = []
-        if panes_left:
-            lines_left += panes_left[0].render(t, width=width_left)
+        for pane in panes_left[:1]:
+            lines_left += pane.render(t, width=width_left)
         for pane in panes_left[1:]:
             lines_left += pane.render(t, width=width_left, border_top=False)
 
-        # TODO draw right panes
-        panes_right: List[Pane] = [self.__pane_actions]
+        # draw right panes
+        panes_right: List[Pane] = [
+            self.__pane_actions,
+            self.__pane_services,
+            self.__pane_nodes]
         lines_right: List[str] = []
+        for pane in panes_right[:1]:
+            lines_right += pane.render(t, width=width_right, border_left=False)
+        for pane in panes_right[1:]:
+            lines_right += pane.render(t, width=width_right, border_top=False, border_left=False)  # noqa
 
         # FIXME for now!
-        contents = '\n'.join(lines_left)
+        contents = '\n'.join(lines_right)
         self._print(contents)
 
     def _refresh(self) -> None:
