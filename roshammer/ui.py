@@ -4,6 +4,7 @@ This module provides a user interface for the CLI.
 """
 __all__ = ('ROSHammerUI',)
 
+from typing import List
 import io
 import time
 
@@ -42,36 +43,55 @@ class ROSHammerUI:
         header = t.bold(t.center(header, fillchar='='))
         p(header)
 
-    def _draw_nodes(self) -> None:
+    def _draw_panel(self,
+                    header: str,
+                    contents: List[str],
+                    *,
+                    width: int = 80,
+                    is_top: bool = True
+                    ) -> None:
+        p = self._print
+        t = self.terminal
+
+        rule = width * '.'
+        top = '..' + header.ljust(width - 2, '.')
+        left = ': '
+        right = ' :'
+        iw = width - 4
+
+        header = t.bold(header.ljust(iw))
+        header = f"{left}{header}{right}"
+
+        if is_top:
+            p(rule)
+        p(header)
+        p(rule)
+        for row in contents:
+            p(f': {row: <{iw}} :')
+        p(rule)
+
+    def _draw(self) -> None:
+        self._draw_header()
+
         nodes = [
             '/robot_state_publisher',
             '/map_server',
             '/move_base',
             '/acml'
         ]
+        self._draw_panel('nodes', nodes)
 
-        p = self._print
-        t = self.terminal
+        services = [
+            '/move_base/make_plan',
+            '/move_base/clear_unknown_space',
+            '/move_base/clear_costmaps'
+        ]
+        self._draw_panel('services', services, is_top=False)
 
-        w = 40
-        rule = w * '.'
-        top = '..' + 'nodes'.ljust(w - 2, '.')
-        left = ': '
-        right = ' :'
-        iw = w - len(left) - len(right)
-
-        p(rule)
-        title = t.bold('nodes'.ljust(iw))
-        head = f"{left}{title}{right}"
-        p(head)
-        p(rule)
-        for node in sorted(nodes):
-            p(f': {node: <{iw}} :')
-        p(rule)
-
-    def _draw(self) -> None:
-        self._draw_header()
-        self._draw_nodes()
+        actions = [
+            '/move_base'
+        ]
+        self._draw_panel('actions', actions, is_top=False)
 
     def _refresh(self) -> None:
         # write to frame buffer and swap
