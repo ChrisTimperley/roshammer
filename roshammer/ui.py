@@ -43,8 +43,6 @@ class ROSHammerUI:
         p(header)
 
     def _draw_nodes(self) -> None:
-        p = self._print
-        t = self.terminal
         nodes = [
             '/robot_state_publisher',
             '/map_server',
@@ -52,7 +50,9 @@ class ROSHammerUI:
             '/acml'
         ]
 
-        # draw node table
+        p = self._print
+        t = self.terminal
+
         w = 40
         rule = w * '.'
         top = '..' + 'nodes'.ljust(w - 2, '.')
@@ -60,18 +60,18 @@ class ROSHammerUI:
         right = ' :'
         iw = w - len(left) - len(right)
 
-        print(rule)
-        title = 'nodes'
-        head = f"{left}{title: <{iw}}{right}"
-        head = t.bold(head)
-        print(head)
-        print(rule)
+        p(rule)
+        title = t.bold('nodes'.ljust(iw))
+        head = f"{left}{title}{right}"
+        p(head)
+        p(rule)
         for node in sorted(nodes):
-            print(f': {node: <{iw}} :')
-        print(rule)
+            p(f': {node: <{iw}} :')
+        p(rule)
 
     def _draw(self) -> None:
         self._draw_header()
+        self._draw_nodes()
 
     def _refresh(self) -> None:
         # write to frame buffer and swap
