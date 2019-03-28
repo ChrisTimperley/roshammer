@@ -50,17 +50,7 @@ class Pane:
 
 
 class ROSHammerUI:
-    """Provides a terminal-based user interface.
-    Note
-    ----
-
-        Right now, the implementation for this UI isn't particularly
-        efficient: string operations are quite poor (e.g., creating
-        new strings via += rather than writing to a buffer). A better
-        solution is to write to an output stream and/or construct a
-        template upon creation of the UI object and to complete that
-        template at every _draw call.
-    """
+    """Provides a terminal-based user interface."""
     def __init__(self,
                  image: str,
                  *,
