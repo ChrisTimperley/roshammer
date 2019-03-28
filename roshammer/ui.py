@@ -65,33 +65,42 @@ class ROSHammerUI:
         if is_top:
             p(rule)
         p(header)
-        p(rule)
+        # p(rule)
         for row in contents:
             p(f': {row: <{iw}} :')
         p(rule)
 
-    def _draw(self) -> None:
-        self._draw_header()
-
-        nodes = [
+    def _draw_nodes(self) -> None:
+        nodes = sorted([
             '/robot_state_publisher',
             '/map_server',
             '/move_base',
             '/acml'
-        ]
-        self._draw_panel('nodes', nodes)
+        ])
+        title = f'nodes [{len(nodes)}]'
+        self._draw_panel(title, nodes)
 
+    def _draw_services(self) -> None:
         services = [
             '/move_base/make_plan',
             '/move_base/clear_unknown_space',
             '/move_base/clear_costmaps'
         ]
-        self._draw_panel('services', services, is_top=False)
+        title = f'services [{len(services)}]'
+        self._draw_panel(title, services)
 
+    def _draw_actions(self) -> None:
         actions = [
             '/move_base'
         ]
-        self._draw_panel('actions', actions, is_top=False)
+        title = f'actions [{len(actions)}]'
+        self._draw_panel(title, actions)
+
+    def _draw(self) -> None:
+        self._draw_header()
+        self._draw_nodes()
+        self._draw_services()
+        self._draw_actions()
 
     def _refresh(self) -> None:
         # write to frame buffer and swap
