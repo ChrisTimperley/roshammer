@@ -115,7 +115,27 @@ class ROSHammerUI:
     def _draw(self) -> None:
         t = self.terminal
         self._draw_header()
-        self._print('\n'.join(self.__pane_nodes.render(t)))
+        self.__pane_nodes.render(t)
+
+        # determine pane width
+        width_left = self.width // 2
+        width_right = width_left
+
+        # draw left panes
+        panes_left: List[Pane] = [self.__pane_nodes, self.__pane_services]
+        lines_left: List[str] = []
+        if panes_left:
+            lines_left += panes_left[0].render(t, width=width_left)
+        for pane in panes_left[1:]:
+            lines_left += pane.render(t, width=width_left, border_top=False)
+
+        # TODO draw right panes
+        panes_right: List[Pane] = [self.__pane_actions]
+        lines_right: List[str] = []
+
+        # FIXME for now!
+        contents = '\n'.join(lines_left)
+        self._print(contents)
 
     def _refresh(self) -> None:
         # write to frame buffer and swap
