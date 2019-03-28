@@ -1,2 +1,3 @@
 typing-extensions>=3.7.2
 fluffycow>=0.0.3
+mypy>=0.670
