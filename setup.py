@@ -20,7 +20,8 @@ setup(
     install_requires=[
         'fluffycow>=0.0.4',
         'click~=7.0',
-        'blessed~=1.15.0'
+        'blessed~=1.15.0',
+        'attrs~=19.1.0'
     ],
     packages=['roshammer'],
     keywords=['ros', 'fuzzing', 'docker'],
