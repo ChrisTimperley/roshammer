@@ -59,7 +59,6 @@ class ROSHammerUI:
         self.terminal = blessed.Terminal()
         self.width = width
         self.__image = image
-        self.__frame_buffer = io.StringIO()
         self._build_static_panes()
 
     def _build_static_panes(self) -> None:
@@ -89,10 +88,6 @@ class ROSHammerUI:
         ])
         title = f'actions [{len(actions)}]'
         self.__pane_actions = Pane(title, actions)
-
-    def _print(self, m: str, end: str = '\n') -> None:
-        """Prints a string to the frame buffer."""
-        print(m, end=end, file=self.__frame_buffer)
 
     def _render_header(self) -> List[str]:
         t = self.terminal
@@ -148,11 +143,8 @@ class ROSHammerUI:
         return lines
 
     def _refresh(self) -> None:
-        self._print('\n'.join(self._render()))
         print(self.terminal.clear(), end='')
-        print(self.__frame_buffer.getvalue(), end='')
-        self.__frame_buffer.close()
-        self.__frame_buffer = io.StringIO()
+        print('\n'.join(self._render()), end='')
 
     def run(self) -> None:
         # TODO implement refresh rate
