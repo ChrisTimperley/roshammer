@@ -19,7 +19,8 @@ setup(
     license='Apache License 2.0',
     install_requires=[
         'fluffycow>=0.0.4',
-        'click~=7.0'
+        'click~=7.0',
+        'blessed~=1.15.0'
     ],
     packages=['roshammer'],
     keywords=['ros', 'fuzzing', 'docker'],
