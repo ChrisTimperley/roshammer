@@ -4,12 +4,18 @@ This module provides a user interface for the CLI.
 """
 __all__ = ('ROSHammerUI',)
 
-from typing import List
+from typing import List, Optional, Tuple, Sequence
 import io
 import time
 
+import attr
 import blessed
 
+
+@attr.s
+class Pane:
+    title = attr.ib(type=Optional[str])
+    contents = attr.ib(type=Sequence[str])
 
 
 class ROSHammerUI:
@@ -33,6 +39,35 @@ class ROSHammerUI:
         self.width = width
         self.__image = image
         self.__frame_buffer = io.StringIO()
+        self._build_static_panes()
+
+    def _build_static_panes(self) -> None:
+        """Constructs and stores each of the static panes."""
+        # TODO fetch
+        nodes = sorted([
+            '/robot_state_publisher',
+            '/map_server',
+            '/move_base',
+            '/acml'
+        ])
+        title = f'nodes [{len(nodes)}]'
+        self.__pane_nodes = Pane(title, nodes)
+
+        # TODO fetch
+        services = sorted([
+            '/move_base/make_plan',
+            '/move_base/clear_unknown_space',
+            '/move_base/clear_costmaps'
+        ])
+        title = f'services [{len(services)}]'
+        self.__pane_services = Pane(title, services)
+
+        # TODO fetch
+        actions = sorted([
+            '/move_base'
+        ])
+        title = f'actions [{len(actions)}]'
+        self.__pane_actions = Pane(title, actions)
 
     def _print(self, m: str, end: str = '\n') -> None:
         """Prints a string to the frame buffer."""
@@ -47,9 +82,7 @@ class ROSHammerUI:
         p(header)
 
     def _draw_panel(self,
-                    header: str,
-                    contents: List[str],
-                    *,
+                    pane: Pane,
                     width: int = 59,
                     is_top: bool = True
                     ) -> None:
@@ -57,53 +90,28 @@ class ROSHammerUI:
         t = self.terminal
 
         rule = width * '.'
-        top = '..' + header.ljust(width - 2, '.')
         left = ': '
         right = ' :'
         iw = width - 4
 
-        header = t.bold(header.ljust(iw))
-        header = f"{left}{header}{right}"
-
         if is_top:
             p(rule)
-        p(header)
-        # p(rule)
-        for row in contents:
-            p(f': {row: <{iw}} :')
+
+        if pane.title:
+            header = t.bold(pane.title.ljust(iw))
+            header = f"{left}{header}{right}"
+            p(header)
+
+        for line in pane.contents:
+            p(f': {line: <{iw}} :')
+
         p(rule)
-
-    def _draw_nodes(self) -> None:
-        nodes = sorted([
-            '/robot_state_publisher',
-            '/map_server',
-            '/move_base',
-            '/acml'
-        ])
-        title = f'nodes [{len(nodes)}]'
-        self._draw_panel(title, nodes)
-
-    def _draw_services(self) -> None:
-        services = [
-            '/move_base/make_plan',
-            '/move_base/clear_unknown_space',
-            '/move_base/clear_costmaps'
-        ]
-        title = f'services [{len(services)}]'
-        self._draw_panel(title, services, is_top=False)
-
-    def _draw_actions(self) -> None:
-        actions = [
-            '/move_base'
-        ]
-        title = f'actions [{len(actions)}]'
-        self._draw_panel(title, actions, is_top=False)
 
     def _draw(self) -> None:
         self._draw_header()
-        self._draw_nodes()
-        self._draw_services()
-        self._draw_actions()
+        self._draw_panel(self.__pane_nodes, 59, True)
+        self._draw_panel(self.__pane_services, 59, False)
+        self._draw_panel(self.__pane_actions, 59, False)
 
     def _refresh(self) -> None:
         # write to frame buffer and swap
