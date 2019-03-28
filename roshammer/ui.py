@@ -4,6 +4,7 @@ This module provides a user interface for the CLI.
 """
 __all__ = ('ROSHammerUI',)
 
+import io
 import time
 
 import blessed
@@ -22,18 +23,28 @@ class ROSHammerUI:
         template upon creation of the UI object and to complete that
         template at every _draw call.
     """
-    def __init__(self, image: str) -> None:
+    def __init__(self,
+                 image: str
+                 ) -> None:
         self.terminal = blessed.Terminal()
         self.__image = image
+        self.__frame_buffer = io.StringIO()
+
+    def _print(self, m: str, end: str = '\n') -> None:
+        """Prints a string to the frame buffer."""
+        print(m, end=end, file=self.__frame_buffer)
 
     def _draw_header(self) -> str:
+        p = self._print
         t = self.terminal
-        b = f" roshammer (v0.0.1) [{self.__image}] "  # TODO obtain version
-        b = t.bold(t.center(b, fillchar='='))
-        b += '\n'
-        return b
+        # TODO obtain version
+        header = f" roshammer (v0.0.1) [{self.__image}] "
+        header = t.bold(t.center(header, fillchar='='))
+        p(header)
 
-    def _draw_stuff(self) -> None:
+    def _draw_nodes(self) -> None:
+        p = self._print
+        t = self.terminal
         nodes = [
             '/robot_state_publisher',
             '/map_server',
@@ -60,14 +71,15 @@ class ROSHammerUI:
         print(rule)
 
     def _draw(self) -> None:
-        header = self._draw_header()
-        return header
+        self._draw_header()
 
     def _refresh(self) -> None:
-        # swap the contents of the buffer
-        buffr = self._draw()
+        # write to frame buffer and swap
+        self._draw()
         print(self.terminal.clear(), end='')
-        print(buffr)
+        print(self.__frame_buffer.getvalue(), end='')
+        self.__frame_buffer.close()
+        self.__frame_buffer = io.StringIO()
 
     def run(self) -> None:
         # TODO implement refresh rate
