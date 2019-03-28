@@ -148,6 +148,9 @@ class ROSHammerUI:
         contents = '\n'.join(lines_left[i] + lines_right[i]
                              for i in range(height))
 
+        # FIXME if either side is higher than the other, the middle border
+        # won't be rendered correctly
+
         self._print(contents)
 
     def _refresh(self) -> None:
