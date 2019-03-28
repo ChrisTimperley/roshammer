@@ -17,6 +17,37 @@ class Pane:
     title = attr.ib(type=Optional[str])
     contents = attr.ib(type=Sequence[str])
 
+    def render(self,
+               t: blessed.Terminal,
+               *,
+               width: int = 80,
+               border_top: bool = True,
+               border_bottom: bool = True,
+               border_left: bool = True,
+               border_right: bool = True
+               ) -> List[str]:
+        """Renders the contents of the pane to a list of lines."""
+        lines: List[str] = []
+
+        rule = width * '.'
+        left = ': ' if border_left else ' '
+        right = ' :' if border_right else ' '
+        iw = width - len(left) - len(right)
+
+        if border_top:
+            lines.append(rule)
+
+        if self.title:
+            header = t.bold(self.title.ljust(iw))
+            header = f"{left}{header}{right}"
+            lines.append(header)
+
+        lines += [f'{left}{l: <{iw}}{right}' for l in self.contents]
+        if border_bottom:
+            lines.append(rule)
+
+        return lines
+
 
 class ROSHammerUI:
     """Provides a terminal-based user interface.
@@ -81,37 +112,10 @@ class ROSHammerUI:
         header = t.bold(t.center(header, width=self.width, fillchar='='))
         p(header)
 
-    def _draw_panel(self,
-                    pane: Pane,
-                    width: int = 59,
-                    is_top: bool = True
-                    ) -> None:
-        p = self._print
-        t = self.terminal
-
-        rule = width * '.'
-        left = ': '
-        right = ' :'
-        iw = width - 4
-
-        if is_top:
-            p(rule)
-
-        if pane.title:
-            header = t.bold(pane.title.ljust(iw))
-            header = f"{left}{header}{right}"
-            p(header)
-
-        for line in pane.contents:
-            p(f': {line: <{iw}} :')
-
-        p(rule)
-
     def _draw(self) -> None:
+        t = self.terminal
         self._draw_header()
-        self._draw_panel(self.__pane_nodes, 59, True)
-        self._draw_panel(self.__pane_services, 59, False)
-        self._draw_panel(self.__pane_actions, 59, False)
+        self._print('\n'.join(self.__pane_nodes.render(t)))
 
     def _refresh(self) -> None:
         # write to frame buffer and swap
