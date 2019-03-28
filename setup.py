@@ -18,7 +18,8 @@ setup(
     url='https://github.com/ChrisTimperley/roshammer',
     license='Apache License 2.0',
     install_requires=[
-        'fluffycow>=0.0.4'
+        'fluffycow>=0.0.4',
+        'click~=7.0'
     ],
     packages=['roshammer'],
     keywords=['ros', 'fuzzing', 'docker'],
