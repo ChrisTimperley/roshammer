@@ -94,18 +94,16 @@ class ROSHammerUI:
         """Prints a string to the frame buffer."""
         print(m, end=end, file=self.__frame_buffer)
 
-    def _draw_header(self) -> str:
-        p = self._print
+    def _render_header(self) -> List[str]:
         t = self.terminal
         # TODO obtain version
         header = f" roshammer (v0.0.1) [{self.__image}] "
         header = t.bold(t.center(header, width=self.width, fillchar='='))
-        p(header)
+        return [header]
 
-    def _draw(self) -> None:
+    def _render(self) -> List[str]:
         t = self.terminal
-        self._draw_header()
-        self.__pane_nodes.render(t)
+        lines = self._render_header()
 
         # determine pane width
         width_left = self.width // 2
@@ -141,21 +139,16 @@ class ROSHammerUI:
             padding = ' ' * width_right
             lines_right += [padding for i in range(height_diff)]
         elif height_right > height_left:
-            padding = ' ' * width_left
+            padding = ' ' * (width_left - 1) + ':'
             lines_left += [padding for i in range(height_diff)]
 
         # compose the two columns into a single list of lines
-        contents = '\n'.join(lines_left[i] + lines_right[i]
-                             for i in range(height))
+        lines += [lines_left[i] + lines_right[i] for i in range(height)]
 
-        # FIXME if either side is higher than the other, the middle border
-        # won't be rendered correctly
-
-        self._print(contents)
+        return lines
 
     def _refresh(self) -> None:
-        # write to frame buffer and swap
-        self._draw()
+        self._print('\n'.join(self._render()))
         print(self.terminal.clear(), end='')
         print(self.__frame_buffer.getvalue(), end='')
         self.__frame_buffer.close()
