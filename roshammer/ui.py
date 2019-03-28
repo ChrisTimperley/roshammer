@@ -25,9 +25,12 @@ class ROSHammerUI:
         template at every _draw call.
     """
     def __init__(self,
-                 image: str
+                 image: str,
+                 *,
+                 width: int = 120
                  ) -> None:
         self.terminal = blessed.Terminal()
+        self.width = width
         self.__image = image
         self.__frame_buffer = io.StringIO()
 
@@ -40,14 +43,14 @@ class ROSHammerUI:
         t = self.terminal
         # TODO obtain version
         header = f" roshammer (v0.0.1) [{self.__image}] "
-        header = t.bold(t.center(header, fillchar='='))
+        header = t.bold(t.center(header, width=self.width, fillchar='='))
         p(header)
 
     def _draw_panel(self,
                     header: str,
                     contents: List[str],
                     *,
-                    width: int = 80,
+                    width: int = 59,
                     is_top: bool = True
                     ) -> None:
         p = self._print
@@ -87,14 +90,14 @@ class ROSHammerUI:
             '/move_base/clear_costmaps'
         ]
         title = f'services [{len(services)}]'
-        self._draw_panel(title, services)
+        self._draw_panel(title, services, is_top=False)
 
     def _draw_actions(self) -> None:
         actions = [
             '/move_base'
         ]
         title = f'actions [{len(actions)}]'
-        self._draw_panel(title, actions)
+        self._draw_panel(title, actions, is_top=False)
 
     def _draw(self) -> None:
         self._draw_header()
