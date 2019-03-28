@@ -132,8 +132,22 @@ class ROSHammerUI:
         for pane in panes_right[1:]:
             lines_right += pane.render(t, width=width_right, border_top=False, border_left=False)  # noqa
 
-        # FIXME for now!
-        contents = '\n'.join(lines_right)
+        # ensure each column has the same number of lines by padding
+        height_left = len(lines_left)
+        height_right = len(lines_right)
+        height = max(height_left, height_right)
+        height_diff = abs(height_left - height_right)
+        if height_left > height_right:
+            padding = ' ' * width_right
+            lines_right += [padding for i in range(height_diff)]
+        elif height_right > height_left:
+            padding = ' ' * width_left
+            lines_left += [padding for i in range(height_diff)]
+
+        # compose the two columns into a single list of lines
+        contents = '\n'.join(lines_left[i] + lines_right[i]
+                             for i in range(height))
+
         self._print(contents)
 
     def _refresh(self) -> None:
