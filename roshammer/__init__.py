@@ -7,8 +7,12 @@ __all__ = ('Fuzzer', 'FuzzTarget', 'Sanitiser')
 from typing import Tuple, FrozenSet, Optional, Iterator
 from enum import Enum
 import contextlib
+import logging
 
 import attr
+
+logger: logging.Logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class Sanitiser(Enum):
@@ -104,10 +108,20 @@ class Fuzzer:
         str
             The name of the instrumented Docker image.
         """
+        image_original = self.target.image
+        logger.info("instrumenting Docker image [%s]", image_original)
+
         raise NotImplementedError
 
+        image_instrumented = "TODO"
+        logger.info("instrumented Docker image [%s]: saved to %s",
+                    image_original,
+                    image_instrumented)
+
     def fuzz(self) -> None:
+        logger.info("started fuzz campaign")
         with self.instrument() as image:
             raise NotImplementedError
+        logger.info("finished fuzz campaign")
 
     run = fuzz
