@@ -4,8 +4,9 @@ roshammer is a fuzzing and random input generation tool for ROS applications.
 """
 __all__ = ('Fuzzer', 'FuzzTarget', 'Sanitiser')
 
-from typing import Tuple, FrozenSet, Optional
+from typing import Tuple, FrozenSet, Optional, Iterator
 from enum import Enum
+import contextlib
 
 import attr
 
@@ -91,7 +92,22 @@ class Fuzzer:
         if num_workers < 1:
             raise ValueError('at least one worker must be used.')
 
-    def fuzz(self) -> None:
+    @contextlib.contextmanager
+    def instrument(self) -> Iterator[str]:
+        """Instruments the Docker image for the application under test.
+
+        Upon exiting the context, the instrumented Docker image will be
+        destroyed.
+
+        Yields
+        ------
+        str
+            The name of the instrumented Docker image.
+        """
         raise NotImplementedError
+
+    def fuzz(self) -> None:
+        with self.instrument() as image:
+            raise NotImplementedError
 
     run = fuzz
