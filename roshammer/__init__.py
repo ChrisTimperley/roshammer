@@ -36,11 +36,11 @@ class FuzzTarget:
     topics: Tuple[str, ...] = attr.ib(converter=tuple)
 
     @nodes.validator
-    def has_at_least_one_node(self, attribute, nodes) -> bool:
+    def has_at_least_one_node(self, attribute, nodes) -> None:
         if not nodes:
             raise ValueError('at least one node must be specified.')
 
     @topics.validator
-    def has_at_least_one_topic(self, attribute, topics) -> bool:
+    def has_at_least_one_topic(self, attribute, topics) -> None:
         if not topics:
             raise ValueError('at least one topic must be specified.')

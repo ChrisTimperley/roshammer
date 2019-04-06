@@ -18,7 +18,8 @@ setup(
     url='https://github.com/ChrisTimperley/roshammer',
     license='Apache License 2.0',
     install_requires=[
-        'fluffycow>=0.0.4',
+        'attrs~=19.1.0',
+        'fluffycow>=0.0.5',
         'click~=7.0'
     ],
     packages=['roshammer'],

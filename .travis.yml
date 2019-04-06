@@ -1,0 +1,15 @@
+language: python
+services:
+- docker
+python:
+- '3.6'
+install:
+- pip install pycodestyle
+- pip install mypy mypy-extensions
+- pip install --upgrade .
+script:
+- pycodestyle --show-source roshammer
+- mypy roshammer --ignore-missing-imports
+- pytest
+notifications:
+  email: false
