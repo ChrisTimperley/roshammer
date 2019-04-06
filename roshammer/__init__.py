@@ -2,10 +2,11 @@
 """
 roshammer is a fuzzing and random input generation tool for ROS applications.
 """
-__all__ = ('Fuzzer', 'FuzzTarget', 'Sanitiser')
+__all__ = ('Fuzzer', 'FuzzSeed', 'FuzzInput', 'FuzzTarget', 'Sanitiser')
 
-from typing import Tuple, FrozenSet, Optional, Iterator
+from typing import Tuple, Set, FrozenSet, Optional, Iterator, Union
 from enum import Enum
+import os
 import contextlib
 import logging
 
@@ -26,6 +27,20 @@ class Sanitiser(Enum):
     MSan = 'msan'
     TSan = 'tsan'
     UBSan = 'ubsan'
+
+
+@attr.s(frozen=True)
+class FuzzSeed:
+    """Describes a fuzzing seed (i.e., a bag file)."""
+    bag_file: str = attr.ib()
+
+    @bag_file.validator
+    def bag_file_must_exist(self, attribute, filename) -> None:
+        if not os.path.isfile(filename):
+            raise ValueError('non-existent bag file provided.')
+
+
+FuzzInput = Union[FuzzSeed]
 
 
 @attr.s(frozen=True)
@@ -73,6 +88,8 @@ class Fuzzer:
     ----------
         target: FuzzTarget
             A description of the ROS application that is to be fuzzed.
+        seeds: FrozenSet[FuzzSeed]
+            The set of seeds that should be used when fuzzing.
         sanitisers: FrozenSet[Sanitiser]
             The set of sanitisers that should be used when fuzzing.
         num_workers: int
@@ -86,6 +103,7 @@ class Fuzzer:
         ValueError: if number of workers is less than one.
     """
     target: FuzzTarget = attr.ib()
+    seeds: FrozenSet[FuzzSeed] = attr.ib(converter=frozenset)
     sanitisers: FrozenSet[Sanitiser] = attr.ib(converter=frozenset,
                                                default=frozenset())
     num_workers: int = attr.ib(default=1)
@@ -95,6 +113,11 @@ class Fuzzer:
     def has_at_least_one_worker(self, attribute, num_workers) -> None:
         if num_workers < 1:
             raise ValueError('at least one worker must be used.')
+
+    @num_workers.validator
+    def has_at_least_one_seed(self, attribute, seeds) -> None:
+        if not seeds:
+            raise ValueError('at least one fuzzing seed must be provided.')
 
     @contextlib.contextmanager
     def instrument(self) -> Iterator[str]:
@@ -118,8 +141,25 @@ class Fuzzer:
                     image_original,
                     image_instrumented)
 
+    def _prepare_seeds(self) -> Set[FuzzSeed]:
+        """Prepares the input seeds for fuzzing.
+
+        Note
+        ----
+            For now, this method maintains the original input seeds.
+        """
+        logger.info("preparing seeds")
+        seeds = set(self.seeds)
+
+        # - filtering: remove all messages on non-target topics
+        # - selection
+
+        logger.info("prepared seeds")
+        return seeds
+
     def fuzz(self) -> None:
         logger.info("started fuzz campaign")
+        seeds = self._prepare_seeds()
         with self.instrument() as image:
             raise NotImplementedError
         logger.info("finished fuzz campaign")
