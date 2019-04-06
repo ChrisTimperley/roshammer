@@ -2,9 +2,9 @@
 """
 roshammer is a fuzzing and random input generation tool for ROS applications.
 """
-__all__ = ('FuzzTarget', 'Sanitiser')
+__all__ = ('Fuzzer', 'FuzzTarget', 'Sanitiser')
 
-from typing import Tuple
+from typing import Tuple, FrozenSet, Optional
 from enum import Enum
 
 import attr
@@ -58,3 +58,40 @@ class FuzzTarget:
     def has_at_least_one_topic(self, attribute, topics) -> None:
         if not topics:
             raise ValueError('at least one topic must be specified.')
+
+
+@attr.s(frozen=True)
+class Fuzzer:
+    """Fuzzes a specified ROS application using a given strategy.
+
+    Attributes
+    ----------
+        target: FuzzTarget
+            A description of the ROS application that is to be fuzzed.
+        sanitisers: FrozenSet[Sanitiser]
+            The set of sanitisers that should be used when fuzzing.
+        num_workers: int
+            The number of parallel worker processes that should be used when
+            fuzzing.
+        random_seed: int
+            The seed that should be supplied to the random number generator.
+
+    Raises
+    ------
+        ValueError: if number of workers is less than one.
+    """
+    target: FuzzTarget = attr.ib()
+    sanitisers: FrozenSet[Sanitiser] = attr.ib(converter=frozenset,
+                                               default=frozenset())
+    num_workers: int = attr.ib(default=1)
+    random_seed: int = attr.ib(default=0)
+
+    @num_workers.validator
+    def has_at_least_one_worker(self, attribute, num_workers) -> None:
+        if num_workers < 1:
+            raise ValueError('at least one worker must be used.')
+
+    def fuzz(self) -> None:
+        raise NotImplementedError
+
+    run = fuzz
