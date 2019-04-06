@@ -2,11 +2,25 @@
 """
 roshammer is a fuzzing and random input generation tool for ROS applications.
 """
-__all__ = ('FuzzTarget',)
+__all__ = ('FuzzTarget', 'Sanitiser')
 
 from typing import Tuple
+from enum import Enum
 
 import attr
+
+
+class Sanitiser(Enum):
+    """Detect undesirable program behaviours via program transformations.
+
+    Sanitisers are used to detect undesirable program behaviours (e.g., buffer
+    overflows and memory leaks) by applying program transformations to the
+    system under test at compile-time.
+    """
+    ASan = 'asan'
+    MSan = 'msan'
+    TSan = 'tsan'
+    UBSan = 'ubsan'
 
 
 @attr.s(frozen=True)
