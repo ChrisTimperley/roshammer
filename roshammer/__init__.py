@@ -2,8 +2,6 @@
 """
 roshammer is a fuzzing and random input generation tool for ROS applications.
 """
-__all__ = ('Fuzzer', 'FuzzSeed', 'FuzzInput', 'FuzzTarget', 'Sanitiser')
-
 from typing import Tuple, Set, FrozenSet, Optional, Iterator, Union
 from enum import Enum
 import os
@@ -12,7 +10,8 @@ import logging
 
 import attr
 
-from .core import FuzzSeed, FuzzInput, FuzzTarget, Sanitiser
+from .core import FuzzTarget, Sanitiser
+from .input import Input, Bag, SeedBag, MutatedBag
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -41,7 +40,7 @@ class Fuzzer:
         ValueError: if number of workers is less than one.
     """
     target: FuzzTarget = attr.ib()
-    seeds: FrozenSet[FuzzSeed] = attr.ib(converter=frozenset)
+    seeds: FrozenSet[SeedBag] = attr.ib(converter=frozenset)
     sanitisers: FrozenSet[Sanitiser] = attr.ib(converter=frozenset,
                                                default=frozenset())
     num_workers: int = attr.ib(default=1)
@@ -79,7 +78,7 @@ class Fuzzer:
                     image_original,
                     image_instrumented)
 
-    def _prepare_seeds(self) -> Set[FuzzSeed]:
+    def _prepare_seeds(self) -> Set[SeedBag]:
         """Prepares the input seeds for fuzzing.
 
         Note

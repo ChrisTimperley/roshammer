@@ -25,20 +25,6 @@ class Sanitiser(Enum):
 
 
 @attr.s(frozen=True)
-class FuzzSeed:
-    """Describes a fuzzing seed (i.e., a bag file)."""
-    bag_file: str = attr.ib()
-
-    @bag_file.validator
-    def bag_file_must_exist(self, attribute, filename) -> None:
-        if not os.path.isfile(filename):
-            raise ValueError('non-existent bag file provided.')
-
-
-FuzzInput = Union[FuzzSeed]
-
-
-@attr.s(frozen=True)
 class FuzzTarget:
     """Provides a description of the ROS application under test.
 
