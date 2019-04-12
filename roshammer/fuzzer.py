@@ -34,11 +34,20 @@ class Fuzzer(Generic[T]):
     image: str
     system: SystemDescription
     inputs: InputGenerator[T]
+    executor: InputExecutor[T]
+
     # need an oracle for assessing inputs: InputChecker
     # we need a way of executing those inputs
     # termination conditions?
 
     def execute(self, inp: T) -> bool:
+        """Fuzzes the SUT using a provided input.
+
+        Returns
+        -------
+        bool
+            True if the input crashed the SUT, else False.
+        """
         with self.roswire.launch(self.image, self.system) as sut:
             pass
 
