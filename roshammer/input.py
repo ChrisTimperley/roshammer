@@ -2,38 +2,22 @@
 """
 This module provides the data structures that describe fuzzing inputs.
 """
-__all__ = ('Input', 'Bag', 'SeedBag', 'MutatedBag')
+__all__ = ('InputGenerator', 'CyclicGenerator')
 
-from typing import Generator
-import os
+from typing import Iterator, Generator, TypeVar, Sequence
+import itertools
 
-import attr
-
-
-class Input:
-    """An input that can be provided to the system under test."""
+T = TypeVar('T')
 
 
-class Bag(Input):
-    """Represents a bag of messages that can be replayed."""
+class InputGenerator(Iterator[T]):
+    """Produces a stream of inputs for fuzzing."""
 
 
-@attr.s(frozen=True)
-class SeedBag(Bag):
-    """Represents an original bag file that is physically stored on disk."""
-    filename: str = attr.ib()
+class CyclicGenerator(InputGenerator[T]):
+    """Produces a repeating stream of seed inputs."""
+    def __init__(self, seeds: Sequence[T]) -> None:
+        self.__stream: Iterator[T] = itertools.cycle(seeds)
 
-    @filename.validator
-    def file_must_exist(self, attribute, filename) -> None:
-        if not os.path.isfile(filename):
-            raise ValueError('non-existent bag file provided.')
-
-
-@attr.s(frozen=True)
-class MutatedBag(Bag):
-    """
-    Represents a bag file whose contents are obtained by applying a
-    sequence of mutations to a seed bag.
-    """
-    original: SeedBag = attr.ib()
-    # TODO add mutations
+    def __next__(self) -> T:
+        return next(self.__stream)
