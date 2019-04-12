@@ -8,6 +8,7 @@ import attr
 from roswire import SystemDescription, ROSWire
 
 from .input import InputGenerator
+from .execute import InputExecutor
 
 T = TypeVar('T')
 
