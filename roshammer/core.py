@@ -2,13 +2,16 @@
 """
 The core module provides all of ROSHammer's basic data structures.
 """
-__all__ = ('FuzzSeed', 'FuzzInput', 'FuzzTarget', 'Sanitiser', 'Bag')
+__all__ = ('App', 'AppInstance', 'FuzzSeed', 'FuzzInput', 'FuzzTarget',
+           'Sanitiser', 'Bag')
 
 from typing import Union, Tuple, Sequence, Iterator, Any
 from enum import Enum
 import os
 
 import attr
+from roswire import System as App
+from roswire import SystemDescription as AppInstance
 from roswire.definitions import TypeDatabase
 from roswire.bag.core import BagMessage
 from roswire.bag import BagWriter, BagReader
