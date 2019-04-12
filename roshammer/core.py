@@ -1,20 +1,49 @@
 # -*- coding: utf-8 -*-
 """
-The core module provides all of ROSHammer's basic data structures.
+The core module defines all of ROSHammer's basic data structures and
+interfaces.
 """
-__all__ = ('App', 'AppInstance', 'FuzzSeed', 'FuzzInput', 'FuzzTarget',
+__all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'FuzzTarget',
            'Sanitiser', 'Bag')
 
-from typing import Union, Tuple, Sequence, Iterator, Any
+from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar)
 from enum import Enum
 import os
 
 import attr
 from roswire import System as App
 from roswire import SystemDescription as AppInstance
+from roswire.proxy import ROSProxy
 from roswire.definitions import TypeDatabase
 from roswire.bag.core import BagMessage
 from roswire.bag import BagWriter, BagReader
+
+T = TypeVar('T')
+
+
+class Mutation(Generic[T]):
+    """Represents a mutation to an input."""
+    def __call__(self, inp: T) -> T:
+        raise NotImplementedError
+
+
+@attr.s(frozen=True)
+class Input(Generic[T]):
+    """Represents a (generated) fuzzing input."""
+    seed: T = attr.ib()
+    mutations: Tuple[Mutation[T], ...] = attr.ib(default=tuple())
+
+
+class Mutator(Generic[T]):
+    """Used to mutate given inputs according to a given strategy."""
+    def __call__(self, inp: Input[T]) -> Input[T]:
+        raise NotImplementedError
+
+
+class InputExecutor(Generic[T]):
+    """Executes a given input on a provided ROS Master."""
+    def __call__(self, ros: ROSProxy, inp: T) -> bool:
+        raise NotImplementedError
 
 
 class Bag(Sequence[BagMessage]):
