@@ -2,13 +2,50 @@
 """
 The core module provides all of ROSHammer's basic data structures.
 """
-__all__ = ('FuzzSeed', 'FuzzInput', 'FuzzTarget', 'Sanitiser')
+__all__ = ('FuzzSeed', 'FuzzInput', 'FuzzTarget', 'Sanitiser', 'Bag')
 
-from typing import Union, Tuple
+from typing import Union, Tuple, Sequence, Iterator, Any
 from enum import Enum
 import os
 
 import attr
+from roswire.definitions import TypeDatabase
+from roswire.bag.core import BagMessage
+from roswire.bag import BagWriter, BagReader
+
+
+class Bag(Sequence[BagMessage]):
+    """Stores the contents of a ROS bag."""
+    __slots__ = ('__contents', '__length')
+
+    def __init__(self, contents: Sequence[BagMessage]) -> None:
+        self.__contents = tuple(contents)
+        self.__length = len(self.__contents)
+
+    @classmethod
+    def load(cls, db_type: TypeDatabase, fn: str) -> 'Bag':
+        """Loads a bag from a given file."""
+        reader = BagReader(fn, db_type)
+        return Bag(reader)
+
+    def save(self, fn: str) -> None:
+        """Saves the contents of the bag to a given file on disk."""
+        writer = BagWriter(fn)
+        writer.write(self.__contents)
+        writer.close()
+
+    def __len__(self) -> int:
+        """Returns the number of messages in the bag."""
+        return self.__length
+
+    def __getitem__(self, index: Any) -> BagMessage:
+        """Retrieves the bag message located at a given index."""
+        assert isinstance(index, int)
+        return self.__contents[index]
+
+    def __iter__(self) -> Iterator[BagMessage]:
+        """Returns an iterator over the contents of the bag."""
+        yield from self.__contents
 
 
 class Sanitiser(Enum):
@@ -24,7 +61,7 @@ class Sanitiser(Enum):
     UBSan = 'ubsan'
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class FuzzTarget:
     """Provides a description of the ROS application under test.
 
