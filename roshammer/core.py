@@ -4,7 +4,7 @@ The core module defines all of ROSHammer's basic data structures and
 interfaces.
 """
 __all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'FuzzTarget',
-           'Sanitiser', 'Bag')
+           'Sanitiser')
 
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar)
 from enum import Enum
@@ -14,9 +14,6 @@ import attr
 from roswire import System as App
 from roswire import SystemDescription as AppInstance
 from roswire.proxy import ROSProxy
-from roswire.definitions import TypeDatabase
-from roswire.bag.core import BagMessage
-from roswire.bag import BagWriter, BagReader
 
 T = TypeVar('T')
 
@@ -27,6 +24,7 @@ class Mutation(Generic[T]):
         raise NotImplementedError
 
 
+# NOTE cannot use slots=True (https://github.com/python-attrs/attrs/issues/313)
 @attr.s(frozen=True)
 class Input(Generic[T]):
     """Represents a (generated) fuzzing input."""
@@ -44,40 +42,6 @@ class InputExecutor(Generic[T]):
     """Executes a given input on a provided ROS Master."""
     def __call__(self, ros: ROSProxy, inp: T) -> bool:
         raise NotImplementedError
-
-
-class Bag(Sequence[BagMessage]):
-    """Stores the contents of a ROS bag."""
-    __slots__ = ('__contents', '__length')
-
-    def __init__(self, contents: Sequence[BagMessage]) -> None:
-        self.__contents = tuple(contents)
-        self.__length = len(self.__contents)
-
-    @classmethod
-    def load(cls, db_type: TypeDatabase, fn: str) -> 'Bag':
-        """Loads a bag from a given file."""
-        reader = BagReader(fn, db_type)
-        return Bag(reader)
-
-    def save(self, fn: str) -> None:
-        """Saves the contents of the bag to a given file on disk."""
-        writer = BagWriter(fn)
-        writer.write(self.__contents)
-        writer.close()
-
-    def __len__(self) -> int:
-        """Returns the number of messages in the bag."""
-        return self.__length
-
-    def __getitem__(self, index: Any) -> BagMessage:
-        """Retrieves the bag message located at a given index."""
-        assert isinstance(index, int)
-        return self.__contents[index]
-
-    def __iter__(self) -> Iterator[BagMessage]:
-        """Returns an iterator over the contents of the bag."""
-        yield from self.__contents
 
 
 class Sanitiser(Enum):
