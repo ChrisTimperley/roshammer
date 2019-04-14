@@ -67,3 +67,18 @@ def test_swap():
     assert all(x.time == y.time for x, y in zip(bx, by))
     assert bx[i].message == by[j].message
     assert bx[j].message == by[i].message
+
+
+def test_replace():
+    db_type = get_test_type_database()
+    Vector3 = db_type['geometry_msgs/Vector3']
+    bag = build_test_bag(10)
+    bx = Bag(bag)
+
+    m_rep = Vector3(150.0, 200.0, 350.0)
+    rep = BagMessage(topic='/pos', time=Time(secs=60.0, nsecs=0.0), message=m_rep)
+
+    i = 4
+    by = bx.replace(i, rep)
+    assert rep in by
+    assert bx[i] not in by

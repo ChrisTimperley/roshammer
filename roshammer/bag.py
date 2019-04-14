@@ -17,7 +17,15 @@ from .core import Input, Mutation, Mutator
 
 @attr.s(frozen=True, slots=True)
 class Bag(Sequence[BagMessage]):
-    """Stores the contents of a ROS bag."""
+    """
+    Stores the contents of a ROS bag as a sequence of messages, ordered by
+    their timestamps.
+
+    Note that all bag operations (e.g., message deletion, replacement,
+    insertion, swapping) maintain the message ordering invariant: the messages
+    within the bag are chronologically by their timestamps, from earliest to
+    latest.
+    """
     _contents: Tuple[BagMessage, ...] = attr.ib(converter=tuple)
 
     @classmethod
@@ -79,8 +87,11 @@ class Bag(Sequence[BagMessage]):
         return Bag(self[:i] + (message,) + self[i:])
 
     def replace(self, index: int, replacement: BagMessage) -> 'Bag':
-        """Returns a variant of this bag with a given message replaced."""
-        raise NotImplementedError
+        """
+        Returns a variant of this bag where a given message is replaced by
+        another.
+        """
+        return self.delete(index).insert(replacement)
 
     def swap(self, i: int, j: int) -> 'Bag':
         """
