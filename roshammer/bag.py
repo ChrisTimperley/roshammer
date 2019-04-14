@@ -5,6 +5,7 @@ This module provides functionality for fuzzing ROS bags.
 __all__ = ('Bag',)
 
 from typing import Sequence, Iterator, Any, Optional, List, Iterable, Tuple
+import bisect
 
 import attr
 from roswire.definitions import TypeDatabase, Message
@@ -74,7 +75,8 @@ class Bag(Sequence[BagMessage]):
 
     def insert(self, message: BagMessage) -> 'Bag':
         """Returns a variant of this bag that contains a given message."""
-        raise NotImplementedError
+        i = bisect.bisect(self._contents, message)
+        return Bag(self[:i] + (message,) + self[i:])
 
     def replace(self, index: int, replacement: BagMessage) -> 'Bag':
         """Returns a variant of this bag with a given message replaced."""

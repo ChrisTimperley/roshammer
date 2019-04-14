@@ -39,3 +39,18 @@ def test_delete():
         assert bag[i] == m
         if i < length - 1:
             assert bag_without_m[i] != m
+
+
+def test_insert():
+    db_type = get_test_type_database()
+    Vector3 = db_type['geometry_msgs/Vector3']
+    bag = build_test_bag(10)
+
+    time = Time(0.3, 0.1)
+    m = BagMessage(topic='/pos', message=Vector3(-1.0, -2.0, -3.0), time=time)
+    bag_with_m = bag.insert(m)
+    assert len(bag_with_m) == len(bag) + 1
+    assert m not in bag
+    assert m in bag_with_m
+    assert all(x in bag_with_m for x in bag)
+    assert bag_with_m.index(m) == 1
