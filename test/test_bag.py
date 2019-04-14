@@ -54,3 +54,16 @@ def test_insert():
     assert m in bag_with_m
     assert all(x in bag_with_m for x in bag)
     assert bag_with_m.index(m) == 1
+
+
+def test_swap():
+    bag = build_test_bag(10)
+    bx = Bag(bag)
+
+    i = 0
+    j = 9
+
+    by = bx.swap(i, j)
+    assert all(x.time == y.time for x, y in zip(bx, by))
+    assert bx[i].message == by[j].message
+    assert bx[j].message == by[i].message

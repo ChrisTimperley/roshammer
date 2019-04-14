@@ -87,7 +87,11 @@ class Bag(Sequence[BagMessage]):
         Returns a variant of this bag where the position and timestamps of two
         messages, given by their indices, are switched.
         """
-        raise NotImplementedError
+        i, j = sorted((i, j))
+        mi = self[i]
+        mj = self[j]
+        mi, mj = (attr.evolve(mi, time=mj.time), attr.evolve(mj, time=mi.time))
+        return Bag(self[:i] + (mj,) + self[i + 1:j] + (mi,) + self[j + 1:])
 
     def restrict_to_topic(self, topic: str) -> 'Bag':
         """Returns a variant of this bag that only represents a given topic."""
@@ -122,7 +126,7 @@ class DelayMessage(BagMutation):
     secs: int = attr.ib()
 
     def __call__(self, bag: Bag) -> Bag:
-        msg = bag[self.index].evolve(time=msg.time + self.secs)
+        msg = attr.evolve(bag[self.index], time=msg.time + self.secs)
         return bag.replace(self.index, msg)
 
 
@@ -162,5 +166,5 @@ class ReplaceMessageData(BagMutation):
     replacement: Message = attr.ib()
 
     def __call__(self, bag: Bag) -> Bag:
-        msg = bag[self.index].evolve(message=self.replacement)
+        msg = attr.evolve(bag[self.index], message=self.replacement)
         return bag.replace(self.index, msg)
