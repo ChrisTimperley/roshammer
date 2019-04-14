@@ -12,7 +12,7 @@ import logging
 
 import attr
 
-from .core import FuzzTarget, Sanitiser
+from .core import FuzzTarget, Sanitiser, InputGenerator
 
 T = TypeVar('T')
 
@@ -43,7 +43,7 @@ class Fuzzer(Generic[T]):
         ValueError: if number of workers is less than one.
     """
     target: FuzzTarget = attr.ib()
-    seeds: FrozenSet[T] = attr.ib(converter=frozenset)
+    inputs: InputGenerator[T] = attr.ib()
     sanitisers: FrozenSet[Sanitiser] = attr.ib(converter=frozenset,
                                                default=frozenset())
     num_workers: int = attr.ib(default=1)
@@ -53,11 +53,6 @@ class Fuzzer(Generic[T]):
     def has_at_least_one_worker(self, attribute, num_workers) -> None:
         if num_workers < 1:
             raise ValueError('at least one worker must be used.')
-
-    @num_workers.validator
-    def has_at_least_one_seed(self, attribute, seeds) -> None:
-        if not seeds:
-            raise ValueError('at least one fuzzing seed must be provided.')
 
     @contextlib.contextmanager
     def instrument(self) -> Iterator[str]:
@@ -81,25 +76,8 @@ class Fuzzer(Generic[T]):
                     image_original,
                     image_instrumented)
 
-    def _prepare_seeds(self) -> Set[T]:
-        """Prepares the input seeds for fuzzing.
-
-        Note
-        ----
-            For now, this method maintains the original input seeds.
-        """
-        logger.info("preparing seeds")
-        seeds = set(self.seeds)
-
-        # - filtering: remove all messages on non-target topics
-        # - selection
-
-        logger.info("prepared seeds")
-        return seeds
-
     def fuzz(self) -> None:
         logger.info("started fuzz campaign")
-        seeds = self._prepare_seeds()
         with self.instrument() as image:
             raise NotImplementedError
         logger.info("finished fuzz campaign")

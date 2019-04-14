@@ -4,9 +4,10 @@ The core module defines all of ROSHammer's basic data structures and
 interfaces.
 """
 __all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'FuzzTarget',
-           'Sanitiser')
+           'Sanitiser', 'InputGenerator')
 
-from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar)
+from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
+                    Generator)
 from enum import Enum
 import os
 
@@ -42,6 +43,10 @@ class InputExecutor(Generic[T]):
     """Executes a given input on a provided ROS Master."""
     def __call__(self, ros: ROSProxy, inp: T) -> bool:
         raise NotImplementedError
+
+
+class InputGenerator(Generator[Input[T], None, None]):
+    """Produces fuzzing inputs according to a given strategy."""
 
 
 class Sanitiser(Enum):
