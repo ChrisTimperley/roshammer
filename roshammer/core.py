@@ -9,11 +9,13 @@ __all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'FuzzTarget',
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
                     Generator)
 from enum import Enum
+import contextlib
 import os
 
 import attr
-from roswire import System as App
-from roswire import SystemDescription as AppInstance
+from roswire import ROSWire
+from roswire import System as AppInstance
+from roswire import SystemDescription as App
 from roswire.proxy import ROSProxy
 
 T = TypeVar('T')
@@ -47,6 +49,22 @@ class InputExecutor(Generic[T]):
 
 class InputGenerator(Generator[Input[T], None, None]):
     """Produces fuzzing inputs according to a given strategy."""
+
+
+@attr.s(frozen=True, slots=True)
+class AppLauncher:
+    """Responsible for launching instances of the app under test."""
+    image: str = attr.ib()
+    description: App = attr.ib()
+    _roswire: ROSWire = attr.ib()
+
+    @contextlib.contextmanager
+    def launch(self) -> Iterator[ROSProxy]:
+        with self._roswire.launch(self.image, self.description) as sut:
+            with sut.ros() as ros:
+                yield ros
+
+    __call__ = launch
 
 
 class Sanitiser(Enum):

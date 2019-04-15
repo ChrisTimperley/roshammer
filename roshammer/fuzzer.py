@@ -12,7 +12,7 @@ import logging
 
 import attr
 
-from .core import FuzzTarget, Sanitiser, InputGenerator
+from .core import FuzzTarget, Sanitiser, InputGenerator, AppLauncher
 
 T = TypeVar('T')
 
@@ -43,6 +43,7 @@ class Fuzzer(Generic[T]):
         ValueError: if number of workers is less than one.
     """
     target: FuzzTarget = attr.ib()
+    launcher: AppLauncher = attr.ib()
     inputs: InputGenerator[T] = attr.ib()
     sanitisers: FrozenSet[Sanitiser] = attr.ib(converter=frozenset,
                                                default=frozenset())
@@ -54,32 +55,11 @@ class Fuzzer(Generic[T]):
         if num_workers < 1:
             raise ValueError('at least one worker must be used.')
 
-    @contextlib.contextmanager
-    def instrument(self) -> Iterator[str]:
-        """Instruments the Docker image for the application under test.
-
-        Upon exiting the context, the instrumented Docker image will be
-        destroyed.
-
-        Yields
-        ------
-        str
-            The name of the instrumented Docker image.
-        """
-        image_original = self.target.image
-        logger.info("instrumenting Docker image [%s]", image_original)
-
-        raise NotImplementedError
-
-        image_instrumented = "TODO"
-        logger.info("instrumented Docker image [%s]: saved to %s",
-                    image_original,
-                    image_instrumented)
-
     def fuzz(self) -> None:
         logger.info("started fuzz campaign")
-        with self.instrument() as image:
-            raise NotImplementedError
-        logger.info("finished fuzz campaign")
+        for inp in self.inputs:
+            with self.launcher() as ros:
+                # TODO inject input
+                pass
 
     run = fuzz
