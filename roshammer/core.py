@@ -18,6 +18,8 @@ from roswire import System as AppInstance
 from roswire import SystemDescription as App
 from roswire.proxy import ROSProxy
 
+from .monitor import ProcessMonitor, ProcessExited
+
 T = TypeVar('T')
 
 
@@ -59,10 +61,10 @@ class AppLauncher:
     _roswire: ROSWire = attr.ib()
 
     @contextlib.contextmanager
-    def launch(self) -> Iterator[ROSProxy]:
+    def launch(self) -> Iterator[Tuple[AppInstance, ROSProxy]]:
         with self._roswire.launch(self.image, self.description) as sut:
             with sut.ros() as ros:
-                yield ros
+                yield sut, ros
 
     __call__ = launch
 
@@ -144,11 +146,11 @@ class Fuzzer(Generic[T]):
         if num_workers < 1:
             raise ValueError('at least one worker must be used.')
 
-    def fuzz_one(self, inp: Input[T], sut: ROSProxy) -> bool:
-        raise NotImplementedError
-
     def fuzz(self) -> None:
         logger.info("started fuzz campaign")
         for inp in self.inputs:
-            with self.launcher() as ros:
-                self.fuzz_one()
+            with self.launcher() as shell, ros:
+                monitor_pids = set(n.pid for n in ros.nodes)
+                with ProcessMonitor(shell, monitor_pids):
+                    # TODO inject inputs
+                    pass
