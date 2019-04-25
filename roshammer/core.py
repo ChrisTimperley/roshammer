@@ -144,9 +144,11 @@ class Fuzzer(Generic[T]):
         if num_workers < 1:
             raise ValueError('at least one worker must be used.')
 
+    def fuzz_one(self, inp: Input[T], sut: ROSProxy) -> bool:
+        raise NotImplementedError
+
     def fuzz(self) -> None:
         logger.info("started fuzz campaign")
         for inp in self.inputs:
             with self.launcher() as ros:
-                # TODO inject input
-                pass
+                self.fuzz_one()
