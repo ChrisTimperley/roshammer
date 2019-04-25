@@ -115,3 +115,38 @@ class FuzzTarget:
     def has_at_least_one_topic(self, attribute, topics) -> None:
         if not topics:
             raise ValueError('at least one topic must be specified.')
+
+
+@attr.s(frozen=True)
+class Fuzzer(Generic[T]):
+    """Fuzzes a specified ROS application using a given strategy.
+
+    Attributes
+    ----------
+        launcher: AppLauncher
+            Launches instances of the application under test.
+        inputs: InputGenerator[T]
+            Produces a stream of fuzzing inputs.
+        num_workers: int
+            The number of parallel worker processes that should be used when
+            fuzzing.
+
+    Raises
+    ------
+        ValueError: if number of workers is less than one.
+    """
+    launcher: AppLauncher = attr.ib()
+    inputs: InputGenerator[T] = attr.ib()
+    num_workers: int = attr.ib(default=1)
+
+    @num_workers.validator
+    def has_at_least_one_worker(self, attribute, num_workers) -> None:
+        if num_workers < 1:
+            raise ValueError('at least one worker must be used.')
+
+    def fuzz(self) -> None:
+        logger.info("started fuzz campaign")
+        for inp in self.inputs:
+            with self.launcher() as ros:
+                # TODO inject input
+                pass
