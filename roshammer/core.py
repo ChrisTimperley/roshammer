@@ -3,13 +3,14 @@
 The core module defines all of ROSHammer's basic data structures and
 interfaces.
 """
-__all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'FuzzTarget',
+__all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'Fuzzer',
            'Sanitiser', 'InputGenerator')
 
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
                     Generator)
 from enum import Enum
 import contextlib
+import logging
 import os
 
 import attr
@@ -19,6 +20,9 @@ from roswire import SystemDescription as App
 from roswire.proxy import ROSProxy
 
 T = TypeVar('T')
+
+logger: logging.Logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class Mutation(Generic[T]):
@@ -80,38 +84,36 @@ class Sanitiser(Enum):
     UBSan = 'ubsan'
 
 
-@attr.s(frozen=True, slots=True)
-class FuzzTarget:
-    """Provides a description of the ROS application under test.
+@attr.s(frozen=True)
+class Fuzzer(Generic[T]):
+    """Fuzzes a specified ROS application using a given strategy.
 
     Attributes
     ----------
-        image: str
-            The name of the Docker image for the ROS application.
-        launch_filepath: str
-            The filepath within the container to the launch file that should
-            be used to launch the application under test.
-        nodes: Tuple[str, ...]
-            The names of the nodes that should be fuzzed.
-        topics: Tuple[str, ...]
-            The names of the topics that should be fuzzed.
+    launcher: AppLauncher
+        Launches instances of the application under test.
+    inputs: InputGenerator[T]
+        Produces a stream of fuzzing inputs.
+    num_workers: int
+        The number of parallel worker processes that should be used when
+        fuzzing.
 
     Raises
     ------
-        ValueError: if no nodes are specified.
-        ValueError: if no topics are specified.
+        ValueError: if number of workers is less than one.
     """
-    image: str = attr.ib()
-    launch_filepath: str = attr.ib()
-    nodes: Tuple[str, ...] = attr.ib(converter=tuple)
-    topics: Tuple[str, ...] = attr.ib(converter=tuple)
+    launcher: AppLauncher = attr.ib()
+    inputs: InputGenerator[T] = attr.ib()
+    num_workers: int = attr.ib(default=1)
 
-    @nodes.validator
-    def has_at_least_one_node(self, attribute, nodes) -> None:
-        if not nodes:
-            raise ValueError('at least one node must be specified.')
+    @num_workers.validator
+    def has_at_least_one_worker(self, attribute, num_workers) -> None:
+        if num_workers < 1:
+            raise ValueError('at least one worker must be used.')
 
-    @topics.validator
-    def has_at_least_one_topic(self, attribute, topics) -> None:
-        if not topics:
-            raise ValueError('at least one topic must be specified.')
+    def fuzz(self) -> None:
+        logger.info("started fuzz campaign")
+        for inp in self.inputs:
+            with self.launcher() as ros:
+                # TODO inject input
+                pass

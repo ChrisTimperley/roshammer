@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 __all__ = ('ProcessExited', 'ProcessMonitor')
 
 from typing import Tuple
