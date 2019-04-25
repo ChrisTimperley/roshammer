@@ -4,7 +4,7 @@ The core module defines all of ROSHammer's basic data structures and
 interfaces.
 """
 __all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'Fuzzer',
-           'Sanitiser', 'InputGenerator')
+           'InputInjector', 'Sanitiser', 'InputGenerator')
 
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
                     Generator)
@@ -45,9 +45,9 @@ class Mutator(Generic[T]):
         raise NotImplementedError
 
 
-class InputExecutor(Generic[T]):
-    """Executes a given input on a provided ROS Master."""
-    def __call__(self, ros: ROSProxy, inp: T) -> bool:
+class InputInjector(Generic[T]):
+    """Injects a given input into the application under test."""
+    def __call__(self, ros: ROSProxy, inp: Input[T]) -> None:
         raise NotImplementedError
 
 
@@ -92,6 +92,8 @@ class Fuzzer(Generic[T]):
     ----------
     launcher: AppLauncher
         Launches instances of the application under test.
+    inject: InputInjector[T]
+        Used to inject fuzzing inputs into the application under test.
     inputs: InputGenerator[T]
         Produces a stream of fuzzing inputs.
     num_workers: int
@@ -103,6 +105,7 @@ class Fuzzer(Generic[T]):
         ValueError: if number of workers is less than one.
     """
     launcher: AppLauncher = attr.ib()
+    inject: InputInjector[T] = attr.ib()
     inputs: InputGenerator[T] = attr.ib()
     num_workers: int = attr.ib(default=1)
 
@@ -115,5 +118,5 @@ class Fuzzer(Generic[T]):
         logger.info("started fuzz campaign")
         for inp in self.inputs:
             with self.launcher() as ros:
-                # TODO inject input
-                pass
+                # TODO should we block?
+                self.inject(ros, inp)
