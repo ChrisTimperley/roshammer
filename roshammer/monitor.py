@@ -8,8 +8,10 @@ import threading
 import attr
 from roswire.proxy import ShellProxy
 
+from .core import FailureDetected
 
-class ProcessExited(Exception):
+
+class ProcessExited(FailureDetected):
     """Thrown when a monitored process has exited."""
 
 

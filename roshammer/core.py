@@ -3,15 +3,25 @@
 The core module defines all of ROSHammer's basic data structures and
 interfaces.
 """
-__all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'Fuzzer',
-           'InputInjector', 'Sanitiser', 'InputGenerator')
+__all__ = ('App',
+           'AppInstance',
+           'FuzzSeed',
+           'Input',
+           'Fuzzer',
+           'FailureDetector',
+           'FailureDetected',
+           'InputInjector',
+           'Sanitiser',
+           'InputGenerator')
 
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
-                    Generator)
+                    Generator, Collection, FrozenSet)
+from abc import ABC, abstractmethod
 from enum import Enum
 from functools import reduce
 import contextlib
 import logging
+import time
 import os
 
 import attr
@@ -61,6 +71,20 @@ class InputGenerator(Generator[Input[T], None, None]):
     """Produces fuzzing inputs according to a given strategy."""
 
 
+class FailureDetector(ABC):
+    """Abstract base class used by all failure detectors."""
+    @abstractmethod
+    def __call__(self,
+                 app: AppInstance,
+                 ros: ROSProxy
+                 ) -> Iterator['FailureDetector']:
+        raise NotImplementedError
+
+
+class FailureDetected(Exception):
+    """Thrown when a failure of the application is detected."""
+
+
 @attr.s(frozen=True, slots=True)
 class AppLauncher:
     """Responsible for launching instances of the app under test."""
@@ -69,10 +93,10 @@ class AppLauncher:
     _roswire: ROSWire = attr.ib()
 
     @contextlib.contextmanager
-    def launch(self) -> Iterator[ROSProxy]:
+    def launch(self) -> Iterator[Tuple[AppInstance, ROSProxy]]:
         with self._roswire.launch(self.image, self.description) as sut:
             with sut.ros() as ros:
-                yield ros
+                yield sut, ros
 
     __call__ = launch
 
@@ -113,6 +137,7 @@ class Fuzzer(Generic[T]):
     launcher: AppLauncher = attr.ib()
     inject: InputInjector[T] = attr.ib()
     inputs: InputGenerator[T] = attr.ib()
+    detectors: FrozenSet[FailureDetector] = attr.ib(converter=frozenset)
     num_workers: int = attr.ib(default=1)
 
     @num_workers.validator
@@ -120,9 +145,31 @@ class Fuzzer(Generic[T]):
         if num_workers < 1:
             raise ValueError('at least one worker must be used.')
 
+    @detectors.validator
+    def has_at_least_one_detector(self, attribute, detectors) -> None:
+        if not detectors:
+            raise ValueError('at least one failure detector must be used.')
+
+    def fuzz_with_input(self, inp: Input[T]) -> None:
+        """Spawns an instance of the app and fuzzes it with a given input."""
+        logger.info("fuzzing with input: %s", inp)
+        with self.launcher() as (app, ros):
+            with contextlib.ExitStack() as stack:
+                # enable each detector
+                for detector in self.detectors:
+                    detector(app, ros)
+
+                # inject the input, block, wait for effects, and listen
+                # for failure.
+                try:
+                    self.inject(ros, inp)
+                    time.sleep(15)  # TODO customise
+                except FailureDetected:
+                    logger.info("CRASHING INPUT FOUND")
+
     def fuzz(self) -> None:
-        logger.info("started fuzz campaign")
+        """Launches a fuzzing campaign using this fuzzing configuration."""
+        logger.info("started fuzzing campaign")
         for inp in self.inputs:
-            with self.launcher() as ros:
-                # TODO should we block?
-                self.inject(ros, inp)
+            self.fuzz_with_input(inp)
+        logger.info("finished fuzzing campaign")
