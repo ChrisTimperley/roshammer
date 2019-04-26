@@ -74,10 +74,7 @@ class InputGenerator(Generator[Input[T], None, None]):
 class FailureDetector(ABC):
     """Abstract base class used by all failure detectors."""
     @abstractmethod
-    def __call__(self,
-                 app: AppInstance,
-                 ros: ROSProxy
-                 ) -> Iterator['FailureDetector']:
+    def __call__(self, app: AppInstance, ros: ROSProxy) -> Iterator[None]:
         raise NotImplementedError
 
 

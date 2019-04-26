@@ -1,18 +1,50 @@
 # -*- coding: utf-8 -*-
-__all__ = ('ProcessExited', 'ProcessMonitor')
+"""
+This module implements various failure detection monitors that are used to
+dynasmically identify instances of failure within the application under test.
+"""
+__all__ = (
+    'ProcessExited',
+    'ProcessMonitor',
+    'NodeCrashDetector')
 
-from typing import Tuple
+from typing import Tuple, Iterator, FrozenSet
 from contextlib import AbstractContextManager
 import threading
 
 import attr
-from roswire.proxy import ShellProxy
+from roswire.proxy import ShellProxy, ROSProxy
 
-from .core import FailureDetected
+from .core import AppInstance, FailureDetected, FailureDetector
 
 
 class ProcessExited(FailureDetected):
     """Thrown when a monitored process has exited."""
+
+
+class NodeCrashed(FailureDetected):
+    """Thrown when a monitored node has crashed."""
+
+
+@attr.s(frozen=True)
+class NodeCrashDetector(FailureDetector):
+    """Detects the abrupt termination of any one of a given set of nodes.
+
+    Attributes
+    ----------
+    nodes: FrozenSet[str]
+        the names of the nodes that should be checked.
+    """
+    nodes: FrozenSet[str] = attr.ib(converter=frozenset)
+
+    def __call__(self, app: AppInstance, ros: ROSProxy) -> Iterator[None]:
+        """Enables this crash detector for a given app instance."""
+        pids = set(ros.nodes[n].pid for n in self.nodes)
+        try:
+            with ProcessMonitor(app._shell, pids):
+                yield
+        except ProcessExited:
+            raise NodeCrashed
 
 
 @attr.s
