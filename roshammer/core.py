@@ -9,6 +9,7 @@ __all__ = ('App', 'AppInstance', 'FuzzSeed', 'Input', 'Fuzzer',
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
                     Generator)
 from enum import Enum
+from functools import reduce
 import contextlib
 import logging
 import os
@@ -37,6 +38,11 @@ class Input(Generic[T]):
     """Represents a (generated) fuzzing input."""
     seed: T = attr.ib()
     mutations: Tuple[Mutation[T], ...] = attr.ib(default=tuple())
+
+    @property
+    def value(self) -> T:
+        """Obtains the concrete value for this input."""
+        return reduce(lambda s, m: m(s), self.mutations, self.seed)
 
 
 class Mutator(Generic[T]):

@@ -2,17 +2,20 @@
 """
 This module provides functionality for fuzzing ROS bags.
 """
-__all__ = ('Bag',)
+__all__ = ('Bag', 'BagInjector')
 
 from typing import Sequence, Iterator, Any, Optional, List, Iterable, Tuple
+import os
 import bisect
+import tempfile
 
 import attr
+from roswire.proxy import ROSProxy
 from roswire.definitions import TypeDatabase, Message
 from roswire.bag.core import BagMessage
 from roswire.bag import BagWriter, BagReader
 
-from .core import Input, Mutation, Mutator
+from .core import Input, InputInjector, Mutation, Mutator
 
 
 @attr.s(frozen=True, slots=True)
@@ -109,10 +112,6 @@ class Bag(Sequence[BagMessage]):
         return Bag(m for m in self if m.topic == topic)
 
 
-class BagInput(Input[Bag]):
-    """Represents a ROS bag fuzzing input."""
-
-
 class BagMutation(Mutation[Bag]):
     """Represents a mutation to a bag file."""
 
@@ -179,3 +178,16 @@ class ReplaceMessageData(BagMutation):
     def __call__(self, bag: Bag) -> Bag:
         msg = attr.evolve(bag[self.index], message=self.replacement)
         return bag.replace(self.index, msg)
+
+
+class BagInjector(InputInjector[Bag]):
+    """Used to inject messages from a ROSBag onto a given ROS session."""
+    def __call__(self, ros: ROSProxy, inp: Input[Bag]) -> None:
+        bag = inp.value
+        _, fn_bag = tempfile.mkstemp()
+        try:
+            bag.save(fn_bag)
+            with ros.playback(fn_bag) as player:
+                player.wait()
+        finally:
+            os.remove(fn_bag)
