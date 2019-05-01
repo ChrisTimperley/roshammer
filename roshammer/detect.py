@@ -9,13 +9,17 @@ __all__ = (
     'NodeCrashDetector')
 
 from typing import Tuple, Iterator, FrozenSet
-from contextlib import AbstractContextManager
+import contextlib
 import threading
+import logging
 
 import attr
 from roswire.proxy import ShellProxy, ROSProxy
 
 from .core import AppInstance, FailureDetected, FailureDetector
+
+logger: logging.Logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class ProcessExited(FailureDetected):
@@ -37,18 +41,20 @@ class NodeCrashDetector(FailureDetector):
     """
     nodes: FrozenSet[str] = attr.ib(converter=frozenset)
 
+    @contextlib.contextmanager
     def __call__(self, app: AppInstance, ros: ROSProxy) -> Iterator[None]:
         """Enables this crash detector for a given app instance."""
         pids = set(ros.nodes[n].pid for n in self.nodes)
+        logger.debug("monitoring PIDs: %s", pids)
         try:
-            with ProcessMonitor(app._shell, pids):
+            with ProcessMonitor(app.shell, pids):
                 yield
         except ProcessExited:
             raise NodeCrashed
 
 
 @attr.s
-class ProcessMonitor(AbstractContextManager):
+class ProcessMonitor(contextlib.AbstractContextManager):
     """Used to monitor a given set of processes within a shell.
 
     Raises

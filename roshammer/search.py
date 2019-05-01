@@ -21,6 +21,11 @@ class RandomInputGenerator(InputGenerator[T]):
     seeds: FrozenSet[T] = attr.ib(converter=frozenset)
     mutator: Mutator[T] = attr.ib()
 
+    @seeds.validator
+    def check(self, attr, seeds: FrozenSet[T]) -> None:
+        if not seeds:
+            raise ValueError("at least one seed must be provided.")
+
     def __next__(self) -> Input[T]:
         seed: T = random.sample(self.seeds, 1)[0]
         inp: Input[T] = Input(seed)

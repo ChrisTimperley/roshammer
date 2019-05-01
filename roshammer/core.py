@@ -15,7 +15,7 @@ __all__ = ('App',
            'InputGenerator')
 
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
-                    Generator, Collection, FrozenSet)
+                    Generator, Collection, FrozenSet, ContextManager)
 from abc import ABC, abstractmethod
 from enum import Enum
 from functools import reduce
@@ -54,6 +54,10 @@ class Input(Generic[T]):
         """Obtains the concrete value for this input."""
         return reduce(lambda s, m: m(s), self.mutations, self.seed)
 
+    def mutate(self, mutation: Mutation[T]) -> 'Input[T]':
+        """Applies a given mutation to this input to produce a new input."""
+        return attr.evolve(self, mutations=self.mutations + (mutation,))
+
 
 class Mutator(Generic[T]):
     """Used to mutate given inputs according to a given strategy."""
@@ -67,14 +71,17 @@ class InputInjector(Generic[T]):
         raise NotImplementedError
 
 
-class InputGenerator(Generator[Input[T], None, None]):
+class InputGenerator(Iterator[Input[T]]):
     """Produces fuzzing inputs according to a given strategy."""
 
 
 class FailureDetector(ABC):
     """Abstract base class used by all failure detectors."""
     @abstractmethod
-    def __call__(self, app: AppInstance, ros: ROSProxy) -> Iterator[None]:
+    def __call__(self,
+                 app: AppInstance,
+                 ros: ROSProxy
+                 ) -> ContextManager[None]:
         raise NotImplementedError
 
 
@@ -87,12 +94,15 @@ class AppLauncher:
     """Responsible for launching instances of the app under test."""
     image: str = attr.ib()
     description: App = attr.ib()
+    launch_filename: str = attr.ib()
     _roswire: ROSWire = attr.ib()
 
     @contextlib.contextmanager
     def launch(self) -> Iterator[Tuple[AppInstance, ROSProxy]]:
         with self._roswire.launch(self.image, self.description) as sut:
-            with sut.ros() as ros:
+            with sut.roscore() as ros:
+                ros.launch(self.launch_filename)
+                time.sleep(5)  # FIXME wait until nodes are launched
                 yield sut, ros
 
     __call__ = launch
@@ -154,7 +164,8 @@ class Fuzzer(Generic[T]):
             with contextlib.ExitStack() as stack:
                 # enable each detector
                 for detector in self.detectors:
-                    detector(app, ros)
+                    logger.debug("enabling detector: %s", detector)
+                    stack.enter_context(detector(app, ros))
 
                 # inject the input, block, wait for effects, and listen
                 # for failure.
@@ -167,6 +178,6 @@ class Fuzzer(Generic[T]):
     def fuzz(self) -> None:
         """Launches a fuzzing campaign using this fuzzing configuration."""
         logger.info("started fuzzing campaign")
-        for inp in self.inputs:
-            self.fuzz_with_input(inp)
+        inp = next(self.inputs)
+        self.fuzz_with_input(inp)
         logger.info("finished fuzzing campaign")

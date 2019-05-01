@@ -7,7 +7,9 @@ __all__ = ('Bag', 'BagInjector')
 from typing import Sequence, Iterator, Any, Optional, List, Iterable, Tuple
 import os
 import bisect
+import random
 import tempfile
+import logging
 
 import attr
 from roswire.proxy import ROSProxy
@@ -16,6 +18,9 @@ from roswire.bag.core import BagMessage
 from roswire.bag import BagWriter, BagReader
 
 from .core import Input, InputInjector, Mutation, Mutator
+
+logger: logging.Logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 @attr.s(frozen=True, slots=True)
@@ -116,10 +121,6 @@ class BagMutation(Mutation[Bag]):
     """Represents a mutation to a bag file."""
 
 
-class BagMutator(Mutator[Bag]):
-    """Base class used by all bag mutators."""
-
-
 @attr.s(frozen=True, slots=True)
 class DropMessage(BagMutation):
     """Drops a given message from the bag."""
@@ -127,6 +128,14 @@ class DropMessage(BagMutation):
 
     def __call__(self, bag: Bag) -> Bag:
         return bag.delete(self.index)
+
+
+class DropMessageMutator(Mutator[Bag]):
+    """Applies drop message mutations to its inputs."""
+    def __call__(self, inp: Input[Bag]) -> Input[Bag]:
+        bag = inp.value
+        index = random.randint(0, len(bag) - 1)
+        return inp.mutate(DropMessage(index))
 
 
 @attr.s(frozen=True, slots=True)
@@ -185,8 +194,13 @@ class BagInjector(InputInjector[Bag]):
     def __call__(self, ros: ROSProxy, inp: Input[Bag]) -> None:
         bag = inp.value
         _, fn_bag = tempfile.mkstemp()
+        logger.debug("created temporary file for bag: %s", fn_bag)
         try:
             bag.save(fn_bag)
+            # TODO due to a bug in the bag writer, we use an existing bag
+            #   file here
+            dir_here = os.path.dirname(__file__)
+            fn_bag = os.path.join(dir_here, '../bad.bag')
             with ros.playback(fn_bag) as player:
                 player.wait()
         finally:
