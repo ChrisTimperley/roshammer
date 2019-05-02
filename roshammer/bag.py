@@ -6,10 +6,12 @@ __all__ = ('Bag', 'BagInjector')
 
 from typing import Sequence, Iterator, Any, Optional, List, Iterable, Tuple
 import os
+import time
 import bisect
 import random
 import tempfile
 import logging
+import threading
 
 import attr
 from roswire.proxy import ROSProxy
@@ -191,7 +193,11 @@ class ReplaceMessageData(BagMutation):
 
 class BagInjector(InputInjector[Bag]):
     """Used to inject messages from a ROSBag onto a given ROS session."""
-    def __call__(self, ros: ROSProxy, inp: Input[Bag]) -> None:
+    def __call__(self,
+                 ros: ROSProxy,
+                 has_failed: threading.Event,
+                 inp: Input[Bag]
+                 ) -> None:
         bag = inp.value
         _, fn_bag = tempfile.mkstemp()
         logger.debug("created temporary file for bag: %s", fn_bag)
@@ -202,6 +208,7 @@ class BagInjector(InputInjector[Bag]):
             dir_here = os.path.dirname(__file__)
             fn_bag = os.path.join(dir_here, '../bad.bag')
             with ros.playback(fn_bag) as player:
-                player.wait()
+                while not has_failed.is_set() and not player.finished():
+                    time.sleep(0.1)
         finally:
             os.remove(fn_bag)

@@ -69,7 +69,11 @@ class Mutator(Generic[T]):
 
 class InputInjector(Generic[T]):
     """Injects a given input into the application under test."""
-    def __call__(self, ros: ROSProxy, inp: Input[T]) -> None:
+    def __call__(self,
+                 ros: ROSProxy,
+                 has_failed: threading.Event,
+                 inp: Input[T]
+                 ) -> None:
         raise NotImplementedError
 
 
@@ -223,10 +227,10 @@ class Fuzzer(Generic[T]):
 
                 # inject the input, block, wait for effects, and listen
                 # for failure.
-                self.inject(ros, inp)
+                self.inject(ros, has_failed, inp)
                 time.sleep(15)  # TODO customise
 
-                if has_failed:
+                if has_failed.is_set():
                     logger.info("CRASHING INPUT FOUND")
                     failures = [d.failure for d in detectors if d.failure]
                     logger.info("FAILURES: %s", failures)
