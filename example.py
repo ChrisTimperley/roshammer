@@ -30,7 +30,7 @@ def main():
         launch_filename='/ros_ws/src/ros_tutorials/roscpp_tutorials/launch/talker_listener.launch',
         roswire=roswire)
     inputs = roshammer.search.RandomInputGenerator(seeds, mutator)
-    detector = roshammer.detect.NodeCrashDetector(['listener'])
+    detector = roshammer.detect.NodeCrashDetector.factory(['listener'])
     injector = roshammer.bag.BagInjector()
     fuzzer = roshammer.Fuzzer(
         launcher=launcher,

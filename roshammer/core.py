@@ -8,17 +8,19 @@ __all__ = ('App',
            'FuzzSeed',
            'Input',
            'Fuzzer',
+           'Failure',
            'FailureDetector',
-           'FailureDetected',
            'InputInjector',
            'Sanitiser',
            'InputGenerator')
 
 from typing import (Union, Tuple, Sequence, Iterator, Any, Generic, TypeVar,
-                    Generator, Collection, FrozenSet, ContextManager)
+                    Generator, Collection, FrozenSet, ContextManager,
+                    Callable, List, Optional)
 from abc import ABC, abstractmethod
 from enum import Enum
 from functools import reduce
+import threading
 import contextlib
 import logging
 import time
@@ -75,18 +77,67 @@ class InputGenerator(Iterator[Input[T]]):
     """Produces fuzzing inputs according to a given strategy."""
 
 
-class FailureDetector(ABC):
+FailureDetectorFactory = Callable[[AppInstance, ROSProxy, threading.Event],
+                                  'FailureDetector']
+
+
+class Failure:
+    """Base class used to describe a failure of the application."""
+
+
+class FailureDetector(contextlib.AbstractContextManager):
     """Abstract base class used by all failure detectors."""
-    @abstractmethod
-    def __call__(self,
+    def __init__(self,
                  app: AppInstance,
-                 ros: ROSProxy
-                 ) -> ContextManager[None]:
+                 ros: ROSProxy,
+                 has_failed: threading.Event
+                 ) -> None:
+        self._app = app
+        self._ros = ros
+        self._has_failed = has_failed
+        self.__failure: Optional[Failure] = None
+        self.__running = False
+        self.__listener = threading.Thread(target=self.listen)
+
+    @property
+    def failure(self) -> Optional[Failure]:
+        """A description of the failure, if any, caught by this detector."""
+        return self.__failure
+
+    @property
+    def running(self) -> bool:
+        """Returns true if this failure detector is running."""
+        return self.__running
+
+    @abstractmethod
+    def listen(self) -> None:
+        """Blocks and listens for failure."""
         raise NotImplementedError
 
+    def start(self) -> None:
+        """Starts listening for failures."""
+        logger.debug("starting failure detector: %s", self)
+        self.__running = True
+        self.__listener.start()
 
-class FailureDetected(Exception):
-    """Thrown when a failure of the application is detected."""
+    def stop(self) -> None:
+        """Stops listening for failures."""
+        logger.debug("stopping failure detector: %s", self)
+        self.__running = False
+        self.__listener.join()
+
+    def _report_failure(self, failure: Failure) -> None:
+        """Used to record a failure that was caught by this detector."""
+        logger.debug("ERROR REPORTED")
+        self.__failure = failure
+        self._has_failed.set()
+
+    def __enter__(self) -> 'FailureDetector':
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.stop()
 
 
 @attr.s(frozen=True, slots=True)
@@ -121,7 +172,7 @@ class Sanitiser(Enum):
     UBSan = 'ubsan'
 
 
-@attr.s(frozen=True)
+@attr.s
 class Fuzzer(Generic[T]):
     """Fuzzes a specified ROS application using a given strategy.
 
@@ -144,7 +195,7 @@ class Fuzzer(Generic[T]):
     launcher: AppLauncher = attr.ib()
     inject: InputInjector[T] = attr.ib()
     inputs: InputGenerator[T] = attr.ib()
-    detectors: FrozenSet[FailureDetector] = attr.ib(converter=frozenset)
+    detectors: List[FailureDetectorFactory] = attr.ib(converter=list)
     num_workers: int = attr.ib(default=1)
 
     @num_workers.validator
@@ -162,18 +213,23 @@ class Fuzzer(Generic[T]):
         logger.info("fuzzing with input: %s", inp)
         with self.launcher() as (app, ros):
             with contextlib.ExitStack() as stack:
-                # enable each detector
-                for detector in self.detectors:
+                has_failed = threading.Event()
+                detectors = []
+                for factory in self.detectors:
+                    detector = factory(app, ros, has_failed)
                     logger.debug("enabling detector: %s", detector)
-                    stack.enter_context(detector(app, ros))
+                    stack.enter_context(detector)
+                    detectors.append(detector)
 
                 # inject the input, block, wait for effects, and listen
                 # for failure.
-                try:
-                    self.inject(ros, inp)
-                    time.sleep(15)  # TODO customise
-                except FailureDetected:
+                self.inject(ros, inp)
+                time.sleep(15)  # TODO customise
+
+                if has_failed:
                     logger.info("CRASHING INPUT FOUND")
+                    failures = [d.failure for d in detectors if d.failure]
+                    logger.info("FAILURES: %s", failures)
 
     def fuzz(self) -> None:
         """Launches a fuzzing campaign using this fuzzing configuration."""
