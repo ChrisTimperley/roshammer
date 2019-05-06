@@ -203,10 +203,6 @@ class BagInjector(InputInjector[Bag]):
         logger.debug("created temporary file for bag: %s", fn_bag)
         try:
             bag.save(fn_bag)
-            # TODO due to a bug in the bag writer, we use an existing bag
-            #   file here
-            dir_here = os.path.dirname(__file__)
-            fn_bag = os.path.join(dir_here, '../bad.bag')
             with ros.playback(fn_bag) as player:
                 while not has_failed.is_set() and not player.finished():
                     time.sleep(0.1)
