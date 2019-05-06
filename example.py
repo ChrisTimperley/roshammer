@@ -15,19 +15,20 @@ def main():
     log_to_stdout.setLevel(logging.DEBUG)
     logging.getLogger('roshammer').addHandler(log_to_stdout)
     logging.getLogger('roswire.proxy').addHandler(log_to_stdout)
+    logging.getLogger('roswire.bag').addHandler(log_to_stdout)
 
     roswire = ROSWire()
     image = 'roswire/helloworld:buggy'
     desc = roswire.descriptions.load_or_build(image)
 
     # load the seed bags
-    seeds = [Bag.load(desc.types, 'good.bag')]
+    seeds = [Bag.load(desc.types, 'bad.bag')]
 
     mutator = roshammer.bag.DropMessageMutator()
     launcher = roshammer.AppLauncher(
         image=image,
         description=desc,
-        launch_filename='/ros_ws/src/ros_tutorials/roscpp_tutorials/launch/talker_listener.launch',
+        launch_filename='/ros_ws/src/ros_tutorials/roscpp_tutorials/launch/listener.launch',
         roswire=roswire)
     inputs = roshammer.search.RandomInputGenerator(seeds, mutator)
     detector = roshammer.detect.NodeCrashDetector.factory(['listener'])
