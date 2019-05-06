@@ -6,6 +6,7 @@ dynasmically identify instances of failure within the application under test.
 __all__ = ('NodeCrashed', 'NodeCrashDetector')
 
 from typing import Tuple, Iterator, FrozenSet, Collection, Callable
+import time
 import functools
 import contextlib
 import threading
@@ -25,7 +26,6 @@ logger.setLevel(logging.DEBUG)
 class NodeCrashed(Failure):
     """Thrown when a monitored node has crashed."""
     node: str = attr.ib()
-    pid: int = attr.ib()
 
 
 class NodeCrashDetector(FailureDetector):
@@ -47,12 +47,11 @@ class NodeCrashDetector(FailureDetector):
         logger.debug("listening for failures [%s]", self)
 
         shell = self._app.shell
-        node_to_pid = {n: self._ros.nodes[n].pid for n in self.__nodes}
-        logger.debug("monitoring PIDs: %s", list(node_to_pid.values()))
+        nodes = [self._ros.nodes[n] for n in self.__nodes]
         while self.running:
-            for node, pid in node_to_pid.items():
-                retcode = shell.execute(f'kill -0 {pid}')[0]
-                if retcode != 0:
-                    failure = NodeCrashed(node, pid)
+            for node in nodes:
+                if not node.is_alive():
+                    failure = NodeCrashed(node)
                     self._report_failure(failure)
                     return
+            time.sleep(0.1)
