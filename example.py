@@ -22,7 +22,7 @@ def main():
     desc = roswire.descriptions.load_or_build(image)
 
     # load the seed bags
-    seeds = [Bag.load(desc.types, 'bad.bag')]
+    seeds = [Bag.load(desc.types, 'bad.bag', ['/chatter'])]
 
     mutator = roshammer.bag.DropMessageMutator()
     launcher = roshammer.AppLauncher(
