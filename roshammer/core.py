@@ -29,13 +29,42 @@ import os
 import attr
 from roswire import ROSWire
 from roswire import System as AppInstance
-from roswire import SystemDescription as App
+from roswire import SystemDescription as AppDescription
 from roswire.proxy import ROSProxy
 
 T = TypeVar('T')
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+
+@attr.s(frozen=True)
+class App:
+    """Provides a description of a ROS application under test.
+
+    Attributes
+    ----------
+    image: str
+        The original Docker image for the application.
+    launch_filename: str
+        The absolute path of the launch file, inside the container, that
+        should be used to launch the application.
+    description: AppDescription
+        A description of the application, produced by ROSWire.
+
+    Raises
+    ------
+    ValueError:
+        if `launch_filename` is not an absolute path.
+    """
+    image: str = attr.ib()
+    launch_filename: str = attr.ib()
+    description: AppDescription = attr.ib()
+
+    @launch_filename.validator
+    def validate_launch_filename(self, attr, value) -> None:
+        if not os.path.isabs(value):
+            raise ValueError('launch_filename should be an absolute path.')
 
 
 class Mutation(Generic[T]):
@@ -147,16 +176,14 @@ class FailureDetector(contextlib.AbstractContextManager):
 @attr.s(frozen=True, slots=True)
 class AppLauncher:
     """Responsible for launching instances of the app under test."""
-    image: str = attr.ib()
-    description: App = attr.ib()
-    launch_filename: str = attr.ib()
+    app: App = attr.ib()
     _roswire: ROSWire = attr.ib()
 
     @contextlib.contextmanager
     def launch(self) -> Iterator[Tuple[AppInstance, ROSProxy]]:
-        with self._roswire.launch(self.image, self.description) as sut:
+        with self._roswire.launch(self.app.image, self.app.description) as sut:
             with sut.roscore() as ros:
-                ros.launch(self.launch_filename)
+                ros.launch(self.app.launch_filename)
                 time.sleep(5)  # FIXME wait until nodes are launched
                 yield sut, ros
 
