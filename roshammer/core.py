@@ -38,6 +38,12 @@ logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
+def validate_is_abs(obj, attr, value) -> None:
+    """Raises an exception if a given value is not an absolute path."""
+    if not os.path.isabs(value):
+        raise ValueError('path is not absolute.')
+
+
 @attr.s(frozen=True)
 class App:
     """Provides a description of a ROS application under test.
@@ -46,6 +52,8 @@ class App:
     ----------
     image: str
         The original Docker image for the application.
+    workspace: str
+        The absolute path to the catkin workspace for the application.
     launch_filename: str
         The absolute path of the launch file, inside the container, that
         should be used to launch the application.
@@ -56,15 +64,13 @@ class App:
     ------
     ValueError:
         if `launch_filename` is not an absolute path.
+    ValueError:
+        if `workspace` is not an absolute path.
     """
     image: str = attr.ib()
-    launch_filename: str = attr.ib()
+    workspace: str = attr.ib(validator=validate_is_abs)
+    launch_filename: str = attr.ib(validator=validate_is_abs)
     description: AppDescription = attr.ib()
-
-    @launch_filename.validator
-    def validate_launch_filename(self, attr, value) -> None:
-        if not os.path.isabs(value):
-            raise ValueError('launch_filename should be an absolute path.')
 
 
 class Mutation(Generic[T]):

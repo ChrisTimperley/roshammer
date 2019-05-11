@@ -20,6 +20,7 @@ def main():
     rsh = ROSHammer()
     roswire = rsh.roswire
     app = rsh.app('roswire/helloworld:buggy',
+                  '/ros_ws',
                   '/ros_ws/src/ros_tutorials/roscpp_tutorials/launch/listener.launch')
     desc = app.description
 

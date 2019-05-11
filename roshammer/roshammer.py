@@ -21,8 +21,19 @@ class ROSHammer:
 
     def app(self,
             image: str,
+            workspace: str,
             launch_filename: str
             ) -> App:
-        """Loads a ROS application."""
+        """Loads a ROS application.
+
+        Parameters
+        ----------
+        image: str
+            The name of the Docker image that provides the application.
+        workspace: str
+            The absolute path to the Catkin workspace inside the container.
+        launch_filename: str
+            The absolute path to the launch file for the application.
+        """
         desc = self.roswire.descriptions.load_or_build(image)
-        return App(image, launch_filename, desc)
+        return App(image, workspace, launch_filename, desc)
