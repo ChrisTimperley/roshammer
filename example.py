@@ -7,7 +7,7 @@ import roshammer.search
 import roshammer.detect
 from roshammer import ROSHammer
 from roshammer.bag import Bag
-from roshammer.core import App
+from roshammer.core import App, Sanitiser, CoverageLevel
 
 
 def main():
@@ -27,7 +27,8 @@ def main():
     # load the seed bags
     seeds = [Bag.load(desc.types, 'bad.bag', ['/chatter'])]
 
-    with rsh.prepare(app) as prepared:
+    sanitisers = [Sanitiser.ASAN]
+    with rsh.prepare(app, CoverageLevel.FUNCTION, sanitisers) as prepared:
         mutator = roshammer.bag.DropMessageMutator()
         launcher = roshammer.AppLauncher(prepared, roswire)
         inputs = roshammer.search.RandomInputGenerator(seeds, mutator)

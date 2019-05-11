@@ -213,10 +213,10 @@ class Sanitiser(Enum):
     overflows and memory leaks) by applying program transformations to the
     system under test at compile-time.
     """
-    ASan = 'asan'
-    MSan = 'msan'
-    TSan = 'tsan'
-    UBSan = 'ubsan'
+    ASAN = 'asan'
+    MSAN = 'msan'
+    TSAN = 'tsan'
+    UBSAN = 'ubsan'
 
 
 @attr.s

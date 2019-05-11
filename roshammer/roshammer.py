@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 __all__ = ('ROSHammer',)
 
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Collection, List
 import contextlib
 import logging
 
@@ -9,7 +9,10 @@ import attr
 from docker.models.images import Image as DockerImage
 from roswire import ROSWire
 
-from .core import App
+from .core import App, Sanitiser, CoverageLevel
+
+logger: logging.Logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class ROSHammer:
@@ -43,7 +46,11 @@ class ROSHammer:
         return App(image, workspace, launch_filename, desc)
 
     @contextlib.contextmanager
-    def prepare(self, app: App) -> Iterator[App]:
+    def prepare(self,
+                app: App,
+                coverage: CoverageLevel = CoverageLevel.DISABLED,
+                sanitisers: Optional[Collection[Sanitiser]] = None
+                ) -> Iterator[App]:
         """Prepares a given ROS application for fuzzing.
 
         Yields
@@ -51,15 +58,49 @@ class ROSHammer:
         App
             A description of the prepared ROS application.
         """
+        logger.debug("preparing application: %s", app)
+        if not sanitisers:
+            sanitisers = []
+
         rsw = self.roswire
         with rsw.launch(app.image, app.description) as sut:
-            image: DockerImage = sut.container.persist()
-            # TODO build with instrumentation
+            cmake_args = ['-DCMAKE_CXX_COMPILER=clang++',
+                          '-DCMAKE_C_COMPILER=clang',
+                          '-DCMAKE_BUILD_TYPE=RelWithDebInfo']
+            cxx_flags: List[str] = ['-g']
+
+            # add sanitiser options
+            fsan_opts: List[str] = []
+            if Sanitiser.ASAN in sanitisers:
+                fsan_opts += ['address']
+            if Sanitiser.UBSAN in sanitisers:
+                fsan_opts += ['undefined']
+            if Sanitiser.MSAN in sanitisers:
+                fsan_opts += ['memory']
+            if Sanitiser.TSAN in sanitisers:
+                fsan_opts += ['thread']
+            if fsan_opts:
+                cxx_flags += [f'-fsanitize={",".join(fsan_opts)}']
+
+            # add coverage options
+            if coverage == CoverageLevel.FUNCTION:
+                cxx_flags += ['-fsanitize-coverage=func,trace-pc-guard']
+            if coverage == CoverageLevel.EDGE:
+                cxx_flags += ['-fsanitize-coverage=edge,trace-pc-guard']
+            if coverage in (CoverageLevel.LINE, CoverageLevel.BLOCK):
+                cxx_flags += ['-fsanitize-coverage=bb,trace-pc-guard']
+
+            if cxx_flags:
+                cmake_args += [f'-DCMAKE_CXX_FLAGS="{" ".join(cxx_flags)}"']
+
             catkin = sut.catkin(app.workspace)
             catkin.clean()
-            catkin.build()
+            catkin.build(cmake_args=cmake_args)
+
+            image: DockerImage = sut.container.persist()
         try:
             prepared = attr.evolve(app, image=image.id)
+            logger.debug("prepared application: %s -> %s", app, prepared)
             yield prepared
         finally:
             rsw.client_docker.images.remove(image.id, force=True)
