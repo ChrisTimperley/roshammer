@@ -192,14 +192,18 @@ class FailureDetector(contextlib.AbstractContextManager):
 @attr.s(frozen=True, slots=True)
 class AppLauncher:
     """Responsible for launching instances of the app under test."""
-    app: App = attr.ib()
+    _app: App = attr.ib()
+    _prefix: str = attr.ib()
     _roswire: ROSWire = attr.ib()
 
     @contextlib.contextmanager
     def launch(self) -> Iterator[Tuple[AppInstance, ROSProxy]]:
-        with self._roswire.launch(self.app.image, self.app.description) as sut:
+        image = self._app.image
+        desc = self._app.description
+        prefix = self._prefix
+        with self._roswire.launch(image, desc) as sut:
             with sut.roscore() as ros:
-                ros.launch(self.app.launch_filename)
+                ros.launch(self._app.launch_filename, prefix=prefix)
                 time.sleep(5)  # FIXME wait until nodes are launched
                 yield sut, ros
 

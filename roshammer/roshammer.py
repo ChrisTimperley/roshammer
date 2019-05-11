@@ -9,7 +9,7 @@ import attr
 from docker.models.images import Image as DockerImage
 from roswire import ROSWire
 
-from .core import App, Sanitiser, CoverageLevel
+from .core import App, AppLauncher, Sanitiser, CoverageLevel
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -44,6 +44,24 @@ class ROSHammer:
         """
         desc = self.roswire.descriptions.load_or_build(image)
         return App(image, workspace, launch_filename, desc)
+
+    def launcher(self,
+                 app: App,
+                 coverage: CoverageLevel = CoverageLevel.DISABLED,
+                 sanitisers: Optional[Collection[Sanitiser]] = None
+                 ) -> AppLauncher:
+        """Constructs an app instance launcher for a given app."""
+        if not sanitisers:
+            sanitisers = []
+
+        cov_opts = 'coverage=1:coverage_direct=1:coverage_dir=/tmp/cov'
+        if coverage == CoverageLevel.DISABLED:
+            prefix = ''
+        elif Sanitiser.ASAN in sanitisers:
+            prefix = f'ASAN_OPTIONS={cov_opts}'
+        else:
+            prefix = f'UBSAN_OPTIONS={cov_opts}'
+        return AppLauncher(app, ' '.join(prefix), self.roswire)
 
     @contextlib.contextmanager
     def prepare(self,
