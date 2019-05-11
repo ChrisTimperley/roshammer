@@ -5,6 +5,7 @@ interfaces.
 """
 __all__ = ('App',
            'AppInstance',
+           'CoverageLevel',
            'FuzzSeed',
            'Input',
            'Fuzzer',
@@ -42,6 +43,15 @@ def validate_is_abs(obj, attr, value) -> None:
     """Raises an exception if a given value is not an absolute path."""
     if not os.path.isabs(value):
         raise ValueError('path is not absolute.')
+
+
+class CoverageLevel(Enum):
+    """Specifies a level of coverage."""
+    DISABLED = 'disabled'
+    EDGE = 'edge'
+    LINE = 'line'
+    BLOCK = 'block'
+    FUNCTION = 'function'
 
 
 @attr.s(frozen=True)
