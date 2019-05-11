@@ -27,17 +27,18 @@ def main():
     # load the seed bags
     seeds = [Bag.load(desc.types, 'bad.bag', ['/chatter'])]
 
-    mutator = roshammer.bag.DropMessageMutator()
-    launcher = roshammer.AppLauncher(app, roswire)
-    inputs = roshammer.search.RandomInputGenerator(seeds, mutator)
-    detector = roshammer.detect.NodeCrashDetector.factory(['listener'])
-    injector = roshammer.bag.BagInjector()
-    fuzzer = roshammer.Fuzzer(
-        launcher=launcher,
-        inject=injector,
-        detectors=[detector],
-        inputs=inputs)
-    fuzzer.fuzz()
+    with rsh.prepare(app) as prepared:
+        mutator = roshammer.bag.DropMessageMutator()
+        launcher = roshammer.AppLauncher(prepared, roswire)
+        inputs = roshammer.search.RandomInputGenerator(seeds, mutator)
+        detector = roshammer.detect.NodeCrashDetector.factory(['listener'])
+        injector = roshammer.bag.BagInjector()
+        fuzzer = roshammer.Fuzzer(
+            launcher=launcher,
+            inject=injector,
+            detectors=[detector],
+            inputs=inputs)
+        fuzzer.fuzz()
 
 
 if __name__ == '__main__':
