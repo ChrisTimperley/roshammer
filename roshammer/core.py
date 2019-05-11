@@ -6,6 +6,7 @@ interfaces.
 __all__ = ('App',
            'AppInstance',
            'CoverageLevel',
+           'Execution',
            'FuzzSeed',
            'Input',
            'Fuzzer',
@@ -32,6 +33,7 @@ from roswire import ROSWire
 from roswire import System as AppInstance
 from roswire import SystemDescription as AppDescription
 from roswire.proxy import ROSProxy
+from roswire.util import Stopwatch
 
 T = TypeVar('T')
 
@@ -190,6 +192,26 @@ class FailureDetector(contextlib.AbstractContextManager):
 
 
 @attr.s(frozen=True, slots=True)
+class Execution:
+    """Describes the outcome of a single fuzzing execution.
+
+    Attributes
+    ----------
+    duration_secs: float
+        The number of seconds taken to complete the execution.
+    failures: frozenset of Failure
+        The failures that were detected during the execution.
+    """
+    duration_secs: float = attr.ib()
+    failures: FrozenSet[Failure] = attr.ib(converter=frozenset)
+
+    @property
+    def failed(self) -> bool:
+        """Returns true if a failure occurred during this execution."""
+        return self.failures is not None
+
+
+@attr.s(frozen=True, slots=True)
 class AppLauncher:
     """Responsible for launching instances of the app under test."""
     _app: App = attr.ib()
@@ -259,8 +281,19 @@ class Fuzzer(Generic[T]):
         if not detectors:
             raise ValueError('at least one failure detector must be used.')
 
-    def fuzz_with_input(self, inp: Input[T]) -> None:
-        """Spawns an instance of the app and fuzzes it with a given input."""
+    def execute(self, inp: Input[T]) -> Execution:
+        """Spawns an instance of the app and fuzzes it with a given input.
+
+        Parameters
+        ----------
+        inp: Input[T]
+            An input to provide to the application under test.
+
+        Returns
+        -------
+        Execution
+            A summary of the execution.
+        """
         logger.info("fuzzing with input: %s", inp)
         with self.launcher() as (app, ros):
             with contextlib.ExitStack() as stack:
@@ -274,17 +307,22 @@ class Fuzzer(Generic[T]):
 
                 # inject the input, block, wait for effects, and listen
                 # for failure.
+                stopwatch = Stopwatch()
+                stopwatch.start()
                 self.inject(ros, has_failed, inp)
                 time.sleep(15)  # TODO customise
+                stopwatch.stop()
 
-                if has_failed.is_set():
-                    logger.info("CRASHING INPUT FOUND")
-                    failures = [d.failure for d in detectors if d.failure]
-                    logger.info("FAILURES: %s", failures)
+                # return a summary of the execution.
+                duration = stopwatch.duration
+                failures = [d.failure for d in detectors if d.failure]
+                out = Execution(duration, failures)  # type: ignore
+                logger.info("fuzzing outcome for input [%s]: %s", inp, out)
+                return out
 
     def fuzz(self) -> None:
         """Launches a fuzzing campaign using this fuzzing configuration."""
         logger.info("started fuzzing campaign")
         inp = next(self.inputs)
-        self.fuzz_with_input(inp)
+        outcome = self.execute(inp)
         logger.info("finished fuzzing campaign")
