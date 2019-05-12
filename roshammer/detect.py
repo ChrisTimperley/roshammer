@@ -35,19 +35,18 @@ class NodeCrashDetector(FailureDetector):
         return functools.partial(cls, nodes=nodes)
 
     def __init__(self,
-                 app: AppInstance,
-                 ros: ROSProxy,
+                 app_instance: AppInstance,
                  has_failed: threading.Event,
                  nodes: Collection[str]
                  ) -> None:
         self.__nodes = frozenset(nodes)
-        super().__init__(app, ros, has_failed)
+        super().__init__(app_instance, has_failed)
 
     def listen(self) -> None:
         logger.debug("listening for failures [%s]", self)
 
-        shell = self._app.shell
-        nodes = [self._ros.nodes[n] for n in self.__nodes]
+        shell = self._app_instance.shell
+        nodes = [self._app_instance.ros.nodes[n] for n in self.__nodes]
         while self.running:
             for node in nodes:
                 if not node.is_alive():

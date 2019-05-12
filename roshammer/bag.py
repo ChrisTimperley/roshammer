@@ -14,12 +14,11 @@ import logging
 import threading
 
 import attr
-from roswire.proxy import ROSProxy
 from roswire.definitions import TypeDatabase, Message
 from roswire.bag.core import BagMessage
 from roswire.bag import BagWriter, BagReader
 
-from .core import Input, InputInjector, Mutation, Mutator
+from .core import Input, InputInjector, Mutation, Mutator, AppInstance
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -194,10 +193,11 @@ class ReplaceMessageData(BagMutation):
 class BagInjector(InputInjector[Bag]):
     """Used to inject messages from a ROSBag onto a given ROS session."""
     def __call__(self,
-                 ros: ROSProxy,
+                 app_instance: AppInstance,
                  has_failed: threading.Event,
                  inp: Input[Bag]
                  ) -> None:
+        ros = app_instance.ros
         bag = inp.value
         _, fn_bag = tempfile.mkstemp()
         logger.debug("created temporary file for bag: %s", fn_bag)

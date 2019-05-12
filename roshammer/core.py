@@ -30,9 +30,11 @@ import os
 
 import attr
 from roswire import ROSWire
-from roswire import System as AppInstance
+from roswire import System as ROSWireSystem
 from roswire import SystemDescription as AppDescription
-from roswire.proxy import ROSProxy
+from roswire.proxy import ROSProxy as ROSWireROSProxy
+from roswire.proxy import ShellProxy as ROSWireShellProxy
+from roswire.proxy import FileProxy as ROSWireFileProxy
 from roswire.util import Stopwatch
 
 T = TypeVar('T')
@@ -56,7 +58,7 @@ class CoverageLevel(Enum):
     FUNCTION = 'function'
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class App:
     """Provides a description of a ROS application under test.
 
@@ -83,6 +85,23 @@ class App:
     workspace: str = attr.ib(validator=validate_is_abs)
     launch_filename: str = attr.ib(validator=validate_is_abs)
     description: AppDescription = attr.ib()
+
+
+@attr.s(frozen=True, slots=True)
+class AppInstance:
+    """Represents an instance of an application under test."""
+    system: ROSWireSystem = attr.ib()
+    ros: ROSWireROSProxy = attr.ib()
+
+    @property
+    def files(self) -> ROSWireFileProxy:
+        """Provides access to the file system for this app instance."""
+        return self.system.files
+
+    @property
+    def shell(self) -> ROSWireShellProxy:
+        """Provides access to a shell for this app instance."""
+        return self.system.shell
 
 
 class Mutation(Generic[T]):
@@ -117,7 +136,7 @@ class Mutator(Generic[T]):
 class InputInjector(Generic[T]):
     """Injects a given input into the application under test."""
     def __call__(self,
-                 ros: ROSProxy,
+                 app_instance: AppInstance,
                  has_failed: threading.Event,
                  inp: Input[T]
                  ) -> None:
@@ -128,7 +147,7 @@ class InputGenerator(Iterator[Input[T]]):
     """Produces fuzzing inputs according to a given strategy."""
 
 
-FailureDetectorFactory = Callable[[AppInstance, ROSProxy, threading.Event],
+FailureDetectorFactory = Callable[[AppInstance, threading.Event],
                                   'FailureDetector']
 
 
@@ -139,12 +158,10 @@ class Failure:
 class FailureDetector(contextlib.AbstractContextManager):
     """Abstract base class used by all failure detectors."""
     def __init__(self,
-                 app: AppInstance,
-                 ros: ROSProxy,
+                 app_instance: AppInstance,
                  has_failed: threading.Event
                  ) -> None:
-        self._app = app
-        self._ros = ros
+        self._app_instance = app_instance
         self._has_failed = has_failed
         self.__failure: Optional[Failure] = None
         self.__running = False
@@ -219,7 +236,7 @@ class AppLauncher:
     _roswire: ROSWire = attr.ib()
 
     @contextlib.contextmanager
-    def launch(self) -> Iterator[Tuple[AppInstance, ROSProxy]]:
+    def launch(self) -> Iterator[AppInstance]:
         image = self._app.image
         desc = self._app.description
         prefix = self._prefix
@@ -227,7 +244,7 @@ class AppLauncher:
             with sut.roscore() as ros:
                 ros.launch(self._app.launch_filename, prefix=prefix)
                 time.sleep(5)  # FIXME wait until nodes are launched
-                yield sut, ros
+                yield AppInstance(sut, ros)
 
     __call__ = launch
 
@@ -295,12 +312,12 @@ class Fuzzer(Generic[T]):
             A summary of the execution.
         """
         logger.info("fuzzing with input: %s", inp)
-        with self.launcher() as (app, ros):
+        with self.launcher() as app:
             with contextlib.ExitStack() as stack:
                 has_failed = threading.Event()
                 detectors = []
                 for factory in self.detectors:
-                    detector = factory(app, ros, has_failed)
+                    detector = factory(app, has_failed)
                     logger.debug("enabling detector: %s", detector)
                     stack.enter_context(detector)
                     detectors.append(detector)
@@ -309,7 +326,7 @@ class Fuzzer(Generic[T]):
                 # for failure.
                 stopwatch = Stopwatch()
                 stopwatch.start()
-                self.inject(ros, has_failed, inp)
+                self.inject(app, has_failed, inp)
                 time.sleep(15)  # TODO customise
                 stopwatch.stop()
 
