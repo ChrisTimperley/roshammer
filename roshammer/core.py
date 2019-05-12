@@ -24,6 +24,7 @@ from enum import Enum
 from functools import reduce
 import threading
 import contextlib
+import collections.abc
 import logging
 import time
 import os
@@ -56,6 +57,10 @@ class CoverageLevel(Enum):
     LINE = 'line'
     BLOCK = 'block'
     FUNCTION = 'function'
+
+
+class Coverage(FrozenSet[int], collections.abc.Set, ABC):
+    """Provdes a concise coverage report for an execution."""
 
 
 @attr.s(frozen=True, slots=True)
@@ -218,9 +223,12 @@ class Execution:
         The number of seconds taken to complete the execution.
     failures: frozenset of Failure
         The failures that were detected during the execution.
+    coverage: Optional[Coverage]
+        An optional coverage report for the execution.
     """
     duration_secs: float = attr.ib()
     failures: FrozenSet[Failure] = attr.ib(converter=frozenset)
+    coverage: Optional[Coverage] = attr.ib()
 
     @property
     def failed(self) -> bool:
@@ -333,9 +341,11 @@ class Fuzzer(Generic[T]):
                 # return a summary of the execution.
                 duration = stopwatch.duration
                 failures = [d.failure for d in detectors if d.failure]
-                out = Execution(duration, failures)  # type: ignore
+                out = Execution(duration, failures, None)  # type: ignore
                 logger.info("fuzzing outcome for input [%s]: %s", inp, out)
                 return out
+
+            # TODO to collect coverage, we need to close the app binary.
 
     def fuzz(self) -> None:
         """Launches a fuzzing campaign using this fuzzing configuration."""
