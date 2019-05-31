@@ -50,7 +50,7 @@ class NodeCrashDetector(FailureDetector):
         while self.running:
             for node in nodes:
                 if not node.is_alive():
-                    failure = NodeCrashed(node)
+                    failure = NodeCrashed(node.name)
                     self._report_failure(failure)
                     return
             time.sleep(0.1)
