@@ -270,6 +270,37 @@ class Sanitiser(Enum):
     UBSAN = 'ubsan'
 
 
+@attr.s(frozen=True)
+class ResourceLimits:
+    """Describes the resource limits that should be placed on the search.
+
+    Attributes
+    ----------
+    wall_clock_mins: float, optional
+        The maximum length of wall-clock time that the fuzzing campaign should
+        be allowed to run, given in minutes.
+    num_inputs: int, optional
+        The maximum number of inputs that may be evaluated.
+    """
+    wall_clock_mins = attr.ib(type=Optional[float], default=None)
+    num_inputs = attr.ib(type=Optional[int], default=None)
+
+
+@attr.s(frozen=True)
+class ResourceUsage:
+    """Describes the resources used by the fuzzer at a given moment in time.
+
+    Attributes
+    ----------
+    wall_clock_mins: float
+        The number of wall-clock minutes that the fuzzing campaign has lasted.
+    num_inputs: int
+        The number of unique inputs that have been evaluated.
+    """
+    wall_clock_mins = attr.ib(type=float, default=0.0)
+    num_inputs = attr.ib(type=int, default=0)
+
+
 @attr.s
 class Fuzzer(Generic[T]):
     """Fuzzes a specified ROS application using a given strategy.
@@ -285,6 +316,8 @@ class Fuzzer(Generic[T]):
     num_workers: int
         The number of parallel worker processes that should be used when
         fuzzing.
+    resource_limits: ResourceLimits
+        A description of the resource limits placed on the fuzzer.
 
     Raises
     ------
@@ -295,6 +328,28 @@ class Fuzzer(Generic[T]):
     inputs: InputGenerator[T] = attr.ib()
     detectors: List[FailureDetectorFactory] = attr.ib(converter=list)
     num_workers: int = attr.ib(default=1)
+    resource_limits: ResourceLimits = attr.ib(default=ResourceLimits())
+    _stopwatch: Stopwatch = attr.ib(default=Stopwatch())
+    _num_executed_inputs: int = attr.ib(default=0)
+
+    @property
+    def resource_usage(self) -> ResourceUsage:
+        """A summary of the resources used by this fuzzer."""
+        return ResourceUsage(wall_clock_mins=self._stopwatch.duration / 60,
+                             num_inputs=self._num_executed_inputs)
+
+    @property
+    def has_reached_resource_limits(self) -> bool:
+        """Determines whether or not the fuzzer has hit its resource limit."""
+        limits = self.resource_limits
+        usage = self.resource_usage
+        if limits.wall_clock_mins is not None:
+            if usage.wall_clock_mins >= limits.wall_clock_mins:
+                return True
+        if limits.num_inputs is not None:
+            if usage.num_inputs >= limits.num_inputs:
+                return True
+        return False
 
     @num_workers.validator
     def has_at_least_one_worker(self, attribute, num_workers) -> None:
@@ -350,6 +405,12 @@ class Fuzzer(Generic[T]):
     def fuzz(self) -> None:
         """Launches a fuzzing campaign using this fuzzing configuration."""
         logger.info("started fuzzing campaign")
-        inp = next(self.inputs)
-        outcome = self.execute(inp)
+        self._stopwatch.start()
+        for inp in self.inputs:
+            if self.has_reached_resource_limits:
+                logger.info("reached resource limits")
+                break
+            outcome = self.execute(inp)
+            self._num_executed_inputs += 1
+        self._stopwatch.stop()
         logger.info("finished fuzzing campaign")
