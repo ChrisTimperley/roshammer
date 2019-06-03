@@ -407,7 +407,9 @@ class Fuzzer(Generic[T]):
         logger.info("started fuzzing campaign")
         self._stopwatch.start()
         for inp in self.inputs:
-            logger.info("fuzzing input #%d", self._num_executed_inputs)
+            logger.info("fuzzing input #%d (running time: %.2f mins)",
+                        self._num_executed_inputs,
+                        self._stopwatch.duration / 60)
             if self.has_reached_resource_limits:
                 logger.info("reached resource limits")
                 break

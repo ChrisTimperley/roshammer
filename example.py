@@ -7,7 +7,7 @@ import roshammer.search
 import roshammer.detect
 from roshammer import ROSHammer
 from roshammer.bag import Bag
-from roshammer.core import App, Sanitiser, CoverageLevel
+from roshammer.core import App, Sanitiser, CoverageLevel, ResourceLimits
 
 
 def main():
@@ -29,6 +29,7 @@ def main():
 
     cov = CoverageLevel.FUNCTION
     sanitisers = [Sanitiser.ASAN]
+    limits = ResourceLimits(wall_clock_mins=5)
     with rsh.prepare(app, cov, sanitisers) as prepared:
         mutator = roshammer.bag.DropMessageMutator()
         launcher = rsh.launcher(prepared, cov, sanitisers)
@@ -39,6 +40,7 @@ def main():
             launcher=launcher,
             inject=injector,
             detectors=[detector],
+            resource_limits=limits,
             inputs=inputs)
         fuzzer.fuzz()
 
