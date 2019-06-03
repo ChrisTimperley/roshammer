@@ -4,7 +4,7 @@ The core module defines all of ROSHammer's basic data structures and
 interfaces.
 """
 __all__ = ('App',
-           'AppInstance',
+           'AppContainer',
            'CoverageLevel',
            'Execution',
            'FuzzSeed',
@@ -76,6 +76,8 @@ class App:
     launch_filename: str
         The absolute path of the launch file, inside the container, that
         should be used to launch the application.
+    launch_prefix: str, optional
+        The prefix that should be used when launching the application, if any.
     description: AppDescription
         A description of the application, produced by ROSWire.
 
@@ -89,24 +91,67 @@ class App:
     image: str = attr.ib()
     workspace: str = attr.ib(validator=validate_is_abs)
     launch_filename: str = attr.ib(validator=validate_is_abs)
+    launch_prefix: Optional[str] = attr.ib()
     description: AppDescription = attr.ib()
+
+    @contextlib.contextmanager
+    def provision(self, rsw: ROSWire) -> Iterator['AppContainer']:
+        """Provisions a container for this application."""
+        with rsw.launch(self.image, self.description) as sut:
+            yield AppContainer(self, sut)
+
+
+@attr.s(frozen=True, slots=True)
+class AppContainer:
+    """Provides access to a Docker container that hosts a ROS application."""
+    app: App = attr.ib()
+    _system: ROSWireSystem = attr.ib()
+
+    @contextlib.contextmanager
+    def launch(self) -> Iterator['AppInstance']:
+        """Launches the application provided by this container.
+
+        Yields
+        ------
+        AppInstance
+            An instance of the application under test.
+        """
+        filename = self.app.launch_filename
+        prefix = self.app.launch_prefix
+        with self._system.roscore() as ros:
+            ros.launch(filename, prefix=prefix)
+            time.sleep(5)  # FIXME wait until nodes are launched
+            yield AppInstance(self, ros)
+
+    @property
+    def files(self) -> ROSWireFileProxy:
+        """Provides access to the file system for this container."""
+        return self._system.files
+
+    @property
+    def shell(self) -> ROSWireShellProxy:
+        """Provides access to a shell for this container."""
+        return self._system.shell
 
 
 @attr.s(frozen=True, slots=True)
 class AppInstance:
-    """Represents an instance of an application under test."""
-    system: ROSWireSystem = attr.ib()
+    container: AppContainer = attr.ib()
     ros: ROSWireROSProxy = attr.ib()
+
+    @property
+    def app(self) -> App:
+        return self.container.app
 
     @property
     def files(self) -> ROSWireFileProxy:
         """Provides access to the file system for this app instance."""
-        return self.system.files
+        return self.container.files
 
     @property
     def shell(self) -> ROSWireShellProxy:
         """Provides access to a shell for this app instance."""
-        return self.system.shell
+        return self.container.shell
 
 
 class Mutation(Generic[T]):
@@ -236,27 +281,6 @@ class Execution:
         return self.failures is not None
 
 
-@attr.s(frozen=True, slots=True)
-class AppLauncher:
-    """Responsible for launching instances of the app under test."""
-    _app: App = attr.ib()
-    _prefix: str = attr.ib()
-    _roswire: ROSWire = attr.ib()
-
-    @contextlib.contextmanager
-    def launch(self) -> Iterator[AppInstance]:
-        image = self._app.image
-        desc = self._app.description
-        prefix = self._prefix
-        with self._roswire.launch(image, desc) as sut:
-            with sut.roscore() as ros:
-                ros.launch(self._app.launch_filename, prefix=prefix)
-                time.sleep(5)  # FIXME wait until nodes are launched
-                yield AppInstance(sut, ros)
-
-    __call__ = launch
-
-
 class Sanitiser(Enum):
     """Detect undesirable program behaviours via program transformations.
 
@@ -307,8 +331,10 @@ class Fuzzer(Generic[T]):
 
     Attributes
     ----------
-    launcher: AppLauncher
-        Launches instances of the application under test.
+    rsw: ROSWire
+        A ROSWire instance.
+    app: App
+        An instrumented form of the application under test.
     inject: InputInjector[T]
         Used to inject fuzzing inputs into the application under test.
     inputs: InputGenerator[T]
@@ -323,7 +349,8 @@ class Fuzzer(Generic[T]):
     ------
         ValueError: if number of workers is less than one.
     """
-    launcher: AppLauncher = attr.ib()
+    rsw: ROSWire = attr.ib()
+    app: App = attr.ib()
     inject: InputInjector[T] = attr.ib()
     inputs: InputGenerator[T] = attr.ib()
     detectors: List[FailureDetectorFactory] = attr.ib(converter=list)
@@ -361,6 +388,12 @@ class Fuzzer(Generic[T]):
         if not detectors:
             raise ValueError('at least one failure detector must be used.')
 
+    @contextlib.contextmanager
+    def launch(self) -> Iterator[AppInstance]:
+        with self.app.provision(self.rsw) as container:
+            with container.launch() as inst:
+                yield inst
+
     def execute(self, inp: Input[T]) -> Execution:
         """Spawns an instance of the app and fuzzes it with a given input.
 
@@ -375,7 +408,7 @@ class Fuzzer(Generic[T]):
             A summary of the execution.
         """
         # logger.info("fuzzing with input: %s", inp)
-        with self.launcher() as app:
+        with self.launch() as app:
             with contextlib.ExitStack() as stack:
                 has_failed = threading.Event()
                 detectors = []

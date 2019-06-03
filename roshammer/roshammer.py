@@ -9,7 +9,7 @@ import attr
 from docker.models.images import Image as DockerImage
 from roswire import ROSWire
 
-from .core import App, AppLauncher, Sanitiser, CoverageLevel
+from .core import App, Sanitiser, CoverageLevel
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -29,7 +29,8 @@ class ROSHammer:
     def app(self,
             image: str,
             workspace: str,
-            launch_filename: str
+            launch_filename: str,
+            launch_prefix: Optional[str] = None
             ) -> App:
         """Loads a ROS application.
 
@@ -41,27 +42,11 @@ class ROSHammer:
             The absolute path to the Catkin workspace inside the container.
         launch_filename: str
             The absolute path to the launch file for the application.
+        launch_prefix: str, optional
+            An optional prefix to add before the roslaunch command.
         """
         desc = self.roswire.descriptions.load_or_build(image)
-        return App(image, workspace, launch_filename, desc)
-
-    def launcher(self,
-                 app: App,
-                 coverage: CoverageLevel = CoverageLevel.DISABLED,
-                 sanitisers: Optional[Collection[Sanitiser]] = None
-                 ) -> AppLauncher:
-        """Constructs an app instance launcher for a given app."""
-        if not sanitisers:
-            sanitisers = []
-
-        cov_opts = 'coverage=1:coverage_direct=1:coverage_dir=/tmp/cov'
-        if coverage == CoverageLevel.DISABLED:
-            prefix = ''
-        elif Sanitiser.ASAN in sanitisers:
-            prefix = f'ASAN_OPTIONS={cov_opts}'
-        else:
-            prefix = f'UBSAN_OPTIONS={cov_opts}'
-        return AppLauncher(app, ' '.join(prefix), self.roswire)
+        return App(image, workspace, launch_filename, launch_prefix, desc)
 
     @contextlib.contextmanager
     def prepare(self,
@@ -79,6 +64,15 @@ class ROSHammer:
         logger.debug("preparing application: %s", app)
         if not sanitisers:
             sanitisers = []
+
+        # determine the prefix for the application
+        cov_opts = 'coverage=1:coverage_direct=1:coverage_dir=/tmp/cov'
+        if coverage == CoverageLevel.DISABLED:
+            prefix = ''
+        elif Sanitiser.ASAN in sanitisers:
+            prefix = f'ASAN_OPTIONS={cov_opts}'
+        else:
+            prefix = f'UBSAN_OPTIONS={cov_opts}'
 
         rsw = self.roswire
         with rsw.launch(app.image, app.description) as sut:

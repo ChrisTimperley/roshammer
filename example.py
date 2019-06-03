@@ -32,12 +32,12 @@ def main():
     limits = ResourceLimits(wall_clock_mins=5)
     with rsh.prepare(app, cov, sanitisers) as prepared:
         mutator = roshammer.bag.DropMessageMutator()
-        launcher = rsh.launcher(prepared, cov, sanitisers)
         inputs = roshammer.search.RandomInputGenerator(seeds, mutator)
         detector = roshammer.detect.NodeCrashDetector.factory(['listener'])
         injector = roshammer.bag.BagInjector()
         fuzzer = roshammer.Fuzzer(
-            launcher=launcher,
+            rsw=roswire,
+            app=prepared,
             inject=injector,
             detectors=[detector],
             resource_limits=limits,
