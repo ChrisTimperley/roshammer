@@ -12,7 +12,7 @@ from roshammer.core import App, Sanitiser, CoverageLevel
 
 def main():
     log_to_stdout = logging.StreamHandler()
-    log_to_stdout.setLevel(logging.DEBUG)
+    log_to_stdout.setLevel(logging.INFO)
     logging.getLogger('roshammer').addHandler(log_to_stdout)
     logging.getLogger('roswire.proxy').addHandler(log_to_stdout)
     logging.getLogger('roswire.bag').addHandler(log_to_stdout)

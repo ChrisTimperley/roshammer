@@ -374,7 +374,7 @@ class Fuzzer(Generic[T]):
         Execution
             A summary of the execution.
         """
-        logger.info("fuzzing with input: %s", inp)
+        # logger.info("fuzzing with input: %s", inp)
         with self.launcher() as app:
             with contextlib.ExitStack() as stack:
                 has_failed = threading.Event()
@@ -397,7 +397,7 @@ class Fuzzer(Generic[T]):
                 duration = stopwatch.duration
                 failures = [d.failure for d in detectors if d.failure]
                 out = Execution(duration, failures, None)  # type: ignore
-                logger.info("fuzzing outcome for input [%s]: %s", inp, out)
+                logger.info("fuzzing outcome for input: %s", out)
                 return out
 
             # TODO to collect coverage, we need to close the app binary.
@@ -407,6 +407,7 @@ class Fuzzer(Generic[T]):
         logger.info("started fuzzing campaign")
         self._stopwatch.start()
         for inp in self.inputs:
+            logger.info("fuzzing input #%d", self._num_executed_inputs)
             if self.has_reached_resource_limits:
                 logger.info("reached resource limits")
                 break
