@@ -12,10 +12,11 @@ from roshammer.core import App, Sanitiser, CoverageLevel, ResourceLimits
 
 def main():
     log_to_stdout = logging.StreamHandler()
-    log_to_stdout.setLevel(logging.INFO)
+    log_to_stdout.setLevel(logging.DEBUG)
     logging.getLogger('roshammer').addHandler(log_to_stdout)
-    logging.getLogger('roswire.proxy').addHandler(log_to_stdout)
-    logging.getLogger('roswire.bag').addHandler(log_to_stdout)
+    logging.getLogger('roswire').addHandler(log_to_stdout)
+    # logging.getLogger('roswire.proxy').addHandler(log_to_stdout)
+    # logging.getLogger('roswire.bag').addHandler(log_to_stdout)
 
     rsh = ROSHammer()
     roswire = rsh.roswire
@@ -29,7 +30,7 @@ def main():
 
     cov = CoverageLevel.FUNCTION
     sanitisers = [Sanitiser.ASAN]
-    limits = ResourceLimits(wall_clock_mins=5)
+    limits = ResourceLimits(wall_clock_mins=5, num_inputs=1)
     with rsh.prepare(app, cov, sanitisers) as prepared:
         mutator = roshammer.bag.DropMessageMutator()
         inputs = roshammer.search.RandomInputGenerator(seeds, mutator)

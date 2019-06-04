@@ -109,9 +109,12 @@ class ROSHammer:
             catkin.clean()
             catkin.build(cmake_args=cmake_args)
 
+            # ensure that the coverage directory exists
+            sut.files.mkdir('/tmp/cov')
+
             image: DockerImage = sut.container.persist()
         try:
-            prepared = attr.evolve(app, image=image.id)
+            prepared = attr.evolve(app, image=image.id, launch_prefix=prefix)
             logger.debug("prepared application: %s -> %s", app, prepared)
             yield prepared
         finally:

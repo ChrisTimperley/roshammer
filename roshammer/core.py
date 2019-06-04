@@ -122,6 +122,9 @@ class AppContainer:
             ros.launch(filename, prefix=prefix)
             time.sleep(5)  # FIXME wait until nodes are launched
             yield AppInstance(self, ros)
+            for node in ros.nodes:
+                ros.nodes[node].shutdown()
+            time.sleep(1)  # wait for nodes to die
 
     @property
     def files(self) -> ROSWireFileProxy:
@@ -132,6 +135,12 @@ class AppContainer:
     def shell(self) -> ROSWireShellProxy:
         """Provides access to a shell for this container."""
         return self._system.shell
+
+    def read_coverage(self) -> Optional[Coverage]:
+        filenames = self.files.find('/tmp/cov', '*.sancov')
+        logger.info("found coverage files: %s", filenames)
+        self.files.copy_to_host(filenames[0], os.getcwd())
+        return None
 
 
 @attr.s(frozen=True, slots=True)
@@ -408,32 +417,35 @@ class Fuzzer(Generic[T]):
             A summary of the execution.
         """
         # logger.info("fuzzing with input: %s", inp)
-        with self.launch() as app:
-            with contextlib.ExitStack() as stack:
-                has_failed = threading.Event()
-                detectors = []
-                for factory in self.detectors:
-                    detector = factory(app, has_failed)
-                    logger.debug("enabling detector: %s", detector)
-                    stack.enter_context(detector)
-                    detectors.append(detector)
+        with self.app.provision(self.rsw) as container:
+            with container.launch() as app:
+                with contextlib.ExitStack() as stack:
+                    has_failed = threading.Event()
+                    detectors = []
+                    for factory in self.detectors:
+                        detector = factory(app, has_failed)
+                        logger.debug("enabling detector: %s", detector)
+                        stack.enter_context(detector)
+                        detectors.append(detector)
 
-                # inject the input, block, wait for effects, and listen
-                # for failure.
-                stopwatch = Stopwatch()
-                stopwatch.start()
-                self.inject(app, has_failed, inp)
-                time.sleep(15)  # TODO customise
-                stopwatch.stop()
+                    # inject the input, block, wait for effects, and listen
+                    # for failure.
+                    stopwatch = Stopwatch()
+                    stopwatch.start()
+                    self.inject(app, has_failed, inp)
+                    time.sleep(15)  # TODO customise
+                    stopwatch.stop()
 
-                # return a summary of the execution.
-                duration = stopwatch.duration
-                failures = [d.failure for d in detectors if d.failure]
-                out = Execution(duration, failures, None)  # type: ignore
-                logger.info("fuzzing outcome for input: %s", out)
-                return out
+                    # return a summary of the execution.
+                    duration = stopwatch.duration
+                    failures = [d.failure for d in detectors if d.failure]
 
-            # TODO to collect coverage, we need to close the app binary.
+            # collect coverage
+            coverage = container.read_coverage()
+
+        out = Execution(duration, failures, coverage)  # type: ignore
+        logger.info("fuzzing outcome for input: %s", out)
+        return out
 
     def fuzz(self) -> None:
         """Launches a fuzzing campaign using this fuzzing configuration."""
