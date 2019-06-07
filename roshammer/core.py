@@ -139,8 +139,12 @@ class AppContainer:
     def read_coverage(self) -> Optional[Coverage]:
         filenames = self.files.find('/tmp/cov', '*.sancov')
         logger.info("found coverage files: %s", filenames)
-        self.files.copy_to_host(filenames[0], os.getcwd())
-        return None
+
+        # use sancov to print coverage report
+        cmd_sancov = ' '.join(['sancov', '-print'] + filenames)
+        retcode, out, duration = self.shell.execute(cmd_sancov)
+        components = frozenset(int(c.strip(), 16) for c in out.split('\n'))
+        return Coverage(components)
 
 
 @attr.s(frozen=True, slots=True)
