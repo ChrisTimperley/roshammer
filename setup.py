@@ -12,7 +12,6 @@ setup(
     version=VERSION,
     python_requires='>=3.5',
     description='A general purpose fuzzer for the Robot Operating System',
-    long_description=open('README.rst').read(),
     author='Chris Timperley',
     author_email='christimperley@googlemail.com',
     url='https://github.com/ChrisTimperley/roshammer',
