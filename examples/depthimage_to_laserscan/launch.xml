@@ -1,0 +1,3 @@
+<launch>
+  <node name="depthimage_to_laserscan" pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" />
+</launch>
