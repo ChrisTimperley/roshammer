@@ -3,7 +3,8 @@ INDIGO=laser_proc \
        imu_transformer \
        depthimage_to_laserscan \
        pointcloud_to_laserscan \
-       face_detector
+       face_detector \
+       leg_detector
 
 all: $(INDIGO)
 
