@@ -6,7 +6,9 @@ INDIGO=laser_proc \
        face_detector \
        leg_detector
 
-all: $(INDIGO)
+KINETIC=heron_control
+
+all: $(INDIGO) $(KINETIC)
 
 $(INDIGO):
 	docker build \
@@ -14,4 +16,10 @@ $(INDIGO):
 	  --build-arg PACKAGE=$@ \
 	  -t roshammer/$@ .
 
-.PHONY: $(INDIGO)
+$(KINETIC):
+	docker build \
+	  --build-arg DISTRO=kinetic \
+	  --build-arg PACKAGE=$@ \
+	  -t roshammer/$@ .
+
+.PHONY: $(INDIGO) $(KINETIC)
